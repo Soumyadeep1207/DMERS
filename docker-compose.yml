@@ -1,13 +1,103 @@
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: dmers
       POSTGRES_USER: dmers
-      POSTGRES_PASSWORD: change-me-before-deployment
-    ports: ["5432:5432"]
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local .env file}
+    ports: ["127.0.0.1:5433:5432"]
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/migrations:/docker-entrypoint-initdb.d:ro
+      - ./docs/review2/sql:/review2:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dmers -d dmers"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+      target: production
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://dmers:${POSTGRES_PASSWORD}@postgres:5432/dmers
+      COURSE_DATABASE_URL: postgresql://dmers:${POSTGRES_PASSWORD}@postgres:5432/dmers_course
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in your local .env file}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports: ["127.0.0.1:5003:5000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      target: production
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports: ["127.0.0.1:5175:8080"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend-dev:
+    profiles: ["dev"]
+    build:
+      context: ./backend
+      target: development
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://dmers:${POSTGRES_PASSWORD}@postgres:5432/dmers
+      COURSE_DATABASE_URL: postgresql://dmers:${POSTGRES_PASSWORD}@postgres:5432/dmers_course
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in your local .env file}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/migrations:/app/migrations:ro
+      - ./backend/run.py:/app/run.py:ro
+    ports: ["127.0.0.1:5002:5000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+      start_period: 10s
+
+  frontend-dev:
+    profiles: ["dev"]
+    build:
+      context: ./frontend
+      target: development
+    restart: unless-stopped
+    environment:
+      VITE_API_PROXY_TARGET: http://backend-dev:5000
+    depends_on:
+      backend-dev:
+        condition: service_healthy
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html:ro
+      - ./frontend/vite.config.js:/app/vite.config.js:ro
+    ports: ["127.0.0.1:5176:5173"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5173/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
 volumes:
   postgres_data:

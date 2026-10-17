@@ -1,0 +1,10 @@
+import { lostUpdateDemo } from '../src/modules/os-labs/synchronisation.js';
+const result=lostUpdateDemo(7,10,2);
+console.log('DMERS lost-update demonstration · seed 7');
+console.log(`Expected ambulance count: ${result.unsynchronized.expected}`);
+console.log(`Without mutex: ${result.unsynchronized.actual} · lost update: ${result.unsynchronized.lostUpdate}`);
+console.log(`With mutex:    ${result.mutex.actual} · correct: ${result.mutex.correct}`);
+console.log('Unsynchronised interleaving:');
+for(const event of result.unsynchronized.operations) console.log(`  ${event.actor.padEnd(3)} ${event.instruction.padEnd(8)} ${event.observed ?? event.value ?? ''}`);
+console.log('Mutex serialization using the same seeded acquisition order:');
+for(const event of result.mutex.operations) console.log(`  ${event.actor.padEnd(3)} ${event.instruction.padEnd(8)} ${event.value}`);
