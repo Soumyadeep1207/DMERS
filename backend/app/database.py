@@ -163,6 +163,7 @@ def is_integrity_error(error: Exception) -> bool:
 
 
 def init_db() -> None:
+    seed_demo_data = os.getenv("DMERS_SEED_DEMO_DATA", "false" if using_postgres() else "true").strip().lower() in {"1", "true", "yes", "on"}
     with connection() as db:
         if using_postgres():
             # The checked-in SQL migration is idempotent and is also mounted into
@@ -188,19 +189,26 @@ def init_db() -> None:
             db.execute("CREATE UNIQUE INDEX IF NOT EXISTS one_active_mission_per_incident ON missions(incident_id) WHERE incident_id IS NOT NULL AND status NOT IN ('completed','aborted')")
             db.execute("CREATE UNIQUE INDEX IF NOT EXISTS one_active_mission_per_report ON missions(report_id) WHERE report_id IS NOT NULL AND status NOT IN ('completed','aborted')")
             db.executemany('INSERT OR IGNORE INTO roles(name) VALUES(?)', [(r,) for r in ('admin','official','responder','volunteer','citizen')])
-        if not db.execute("SELECT 1 FROM users WHERE email='admin@rescue.ai'").fetchone():
-            db.execute('INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)', ('System Admin','admin@rescue.ai',generate_password_hash('Admin@123'),'admin'))
-        seed_users = [('District Duty Officer','officer@dmers.test','official'),('Field Responder','responder@dmers.test','responder')]
-        for name, email, role in seed_users:
-            if not db.execute('SELECT 1 FROM users WHERE email=?', (email,)).fetchone():
-                db.execute('INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)', (name,email,generate_password_hash('Training@123'),role))
+        admin_email = os.getenv("DMERS_BOOTSTRAP_ADMIN_EMAIL", "admin@rescue.ai").strip().lower()
+        admin_password = os.getenv("DMERS_BOOTSTRAP_ADMIN_PASSWORD", "")
+        if not db.execute('SELECT 1 FROM users WHERE email=?', (admin_email,)).fetchone():
+            if admin_password:
+                db.execute('INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)', ('System Admin',admin_email,generate_password_hash(admin_password),'admin'))
+            elif seed_demo_data:
+                db.execute('INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)', ('System Admin',admin_email,generate_password_hash('Admin@123'),'admin'))
+        if seed_demo_data:
+            seed_users = [('District Duty Officer','officer@dmers.test','official'),('Field Responder','responder@dmers.test','responder')]
+            for name, email, role in seed_users:
+                if not db.execute('SELECT 1 FROM users WHERE email=?', (email,)).fetchone():
+                    db.execute('INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)', (name,email,generate_password_hash('Training@123'),role))
         if not db.execute('SELECT 1 FROM rescue_teams').fetchone():
             db.executemany('INSERT INTO rescue_teams(name,capability) VALUES(?,?)', [('Rescue Team A','urban rescue'),('Rescue Team B','flood rescue'),('Fire & Rescue Unit','fire and structural rescue'),('Medical Response Unit','medical evacuation')])
         if not db.execute('SELECT 1 FROM hospitals').fetchone():
             loc = db.execute('INSERT INTO locations(label,latitude,longitude,address) VALUES(?,?,?,?)', ('Vellore Government Hospital',12.9165,79.1325,'Vellore')).lastrowid
             db.execute('INSERT INTO hospitals(name,location_id,total_beds,available_beds,status) VALUES(?,?,?,?,?)', ('Vellore Government Hospital',loc,300,84,'accepting'))
-        if not db.execute('SELECT 1 FROM incidents').fetchone():
-            officer = db.execute("SELECT id FROM users WHERE email='officer@dmers.test'").fetchone()[0]
+        if seed_demo_data and not db.execute('SELECT 1 FROM incidents').fetchone():
+            officer_row = db.execute("SELECT id FROM users WHERE email='officer@dmers.test'").fetchone()
+            officer = officer_row[0] if officer_row else None
             team = db.execute("SELECT id FROM rescue_teams ORDER BY id LIMIT 1").fetchone()[0]
             hospital = db.execute("SELECT id FROM hospitals ORDER BY id LIMIT 1").fetchone()[0]
             samples = [('INC-TRAIN-001','Flood','critical','reported','Water entering homes near the river.','Katpadi riverbank',12.98,79.14),('INC-TRAIN-002','Road obstruction','high','verified','Debris is blocking the east access road.','East access road',12.93,79.16),('INC-TRAIN-003','Medical emergency','moderate','dispatched','Training record for a medical response.','Vellore central',12.916,79.133)]

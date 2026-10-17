@@ -26,6 +26,10 @@ The Compose ports bind to localhost only. PostgreSQL is exposed on `127.0.0.1:54
 
 The default Compose stack is production-style: Gunicorn runs Flask, while a multi-stage frontend image builds static assets and serves them with Nginx. For hot-reload development containers, run `docker compose --profile dev up --build -d postgres backend-dev frontend-dev`; open `http://127.0.0.1:5176` and check `http://127.0.0.1:5002/health`. The development profile uses bind mounts for the application source and shares the same PostgreSQL service.
 
+## AWS deployment
+
+AWS deployment files live separately in [`aws/`](aws/README.md) and use ECS Fargate, ECR, an Application Load Balancer, private RDS PostgreSQL, Secrets Manager, and CloudWatch. They do not replace or alter the local Compose workflow. Follow the [AWS deployment guide](aws/README.md) for prerequisites, image publishing, infrastructure setup, coursework database initialization, health verification, and cleanup. The sample AWS configuration is HTTP-only and intended for a course demo; configure HTTPS before sending any real credentials or incident data.
+
 ## Manual/offline setup
 
 For a completely disconnected machine, copy this project including `frontend/node_modules` and the Python virtual environment after they have been installed once on a connected machine. Then run `cd frontend; npm run dev` — the interface works by itself at the local URL shown. Optionally start the backend with `cd backend; .\.venv\Scripts\python.exe run.py` for SQLite-backed accounts, simulations, and audit log.

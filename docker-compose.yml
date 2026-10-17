@@ -26,6 +26,7 @@ services:
       DATABASE_URL: postgresql://dmers:${POSTGRES_PASSWORD}@postgres:5432/dmers
       COURSE_DATABASE_URL: postgresql://dmers:${POSTGRES_PASSWORD}@postgres:5432/dmers_course
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in your local .env file}
+      DMERS_SEED_DEMO_DATA: "true"
     depends_on:
       postgres:
         condition: service_healthy
@@ -62,6 +63,7 @@ services:
       DATABASE_URL: postgresql://dmers:${POSTGRES_PASSWORD}@postgres:5432/dmers
       COURSE_DATABASE_URL: postgresql://dmers:${POSTGRES_PASSWORD}@postgres:5432/dmers_course
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in your local .env file}
+      DMERS_SEED_DEMO_DATA: "true"
     depends_on:
       postgres:
         condition: service_healthy
