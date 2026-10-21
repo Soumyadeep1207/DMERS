@@ -5,6 +5,7 @@ import { admissibleHeuristic, search } from './search.js';
 import { applyScenario } from './scenario.js';
 import { planMultiTarget } from './multitarget.js';
 import { incidentAdvisory, matchHospitals, rankTeams } from './triage.js';
+import { routeAdvisory } from './routeAdvisory.js';
 
 const clock = () => '2026-10-22T00:00:00.000Z';
 const asOf = '2026-10-22T00:00:00.000Z';
@@ -162,3 +163,22 @@ describe('accountability', () => {
 });
 
 function passableCell(cellGrid, r, c) { return cellGrid[r]?.[c] && !cellGrid[r][c].blocked; }
+
+describe('route advisory', () => {
+  it('wraps a found route with evidence and limitations, score null', () => {
+    const result = search(grid, [0, 0], [2, 2], 'astar', 'balanced');
+    const item = routeAdvisory(result, { algorithm: 'astar', policy: 'balanced', clock });
+    expect(item.kind).toBe('ROUTE'); expect(item.score).toBeNull(); expect(item.requiresHumanAction).toBe(true);
+    expect(item.evidence.some(row => row.factor === 'Cost (grid units)')).toBe(true);
+    expect(item.limitations.join(' ')).toMatch(/not measured travel time/);
+  });
+  it('still reports evidence honestly for an unreachable route', () => {
+    const blocked = grid.map(row => row.map(cell => ({ ...cell, blocked: true }))); blocked[0][0].blocked = false;
+    const result = search(blocked, [0, 0], [2, 2], 'astar', 'balanced');
+    const item = routeAdvisory(result, { algorithm: 'astar', policy: 'balanced', clock });
+    expect(item.recommendation).toMatch(/no route/i);
+  });
+  it('rejects an unknown policy instead of silently defaulting', () => {
+    expect(() => routeAdvisory({ status: 'FOUND' }, { algorithm: 'astar', policy: 'nope', clock })).toThrow();
+  });
+});
