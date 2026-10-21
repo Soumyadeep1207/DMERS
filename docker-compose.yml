@@ -1,13 +1,56 @@
+name: dmers
+
 services:
-  postgres:
+  database:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: dmers
-      POSTGRES_USER: dmers
-      POSTGRES_PASSWORD: change-me-before-deployment
-    ports: ["5432:5432"]
+      POSTGRES_DB: ${POSTGRES_DB:-dmers}
+      POSTGRES_USER: ${POSTGRES_USER:-dmers}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [dmers]
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dmers}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB:-dmers}
+    depends_on:
+      database:
+        condition: service_healthy
+    expose: ["5000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [dmers]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports: ["${DMERS_PORT:-8080}:80"]
+    networks: [dmers]
+
 volumes:
   postgres_data:
+
+networks:
+  dmers:
+    driver: bridge

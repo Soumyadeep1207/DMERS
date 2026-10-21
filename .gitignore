@@ -5,6 +5,7 @@ backend/app/__pycache__/
 backend/*.db
 frontend/node_modules/
 frontend/dist/
+frontend/coverage/
 .env
 .env.*
 !*.example
