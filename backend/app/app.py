@@ -7,6 +7,8 @@ from flask_cors import CORS
 from werkzeug.security import check_password_hash, generate_password_hash
 from .database import connection, init_db, save_simulation, simulations, database_health
 from .search import search
+from ai import service as ai_service
+from ai.store import save_assessment, save_feedback
 
 def create_app() -> Flask:
     app = Flask(__name__); CORS(app)
@@ -32,6 +34,10 @@ def create_app() -> Flask:
                 return fn(*args, **kwargs)
             return wrapped
         return decorator
+    @app.get("/api/health")
+    def health():
+        """Container health probe; no credentials or internal details exposed."""
+        return jsonify(status="ok", service="dmers-backend")
     @app.post("/api/auth/register")
     def register():
         data = request.get_json() or {}; name, email, password = data.get("name", ""), data.get("email", "").lower(), data.get("password", "")
@@ -199,6 +205,80 @@ def create_app() -> Flask:
     def hospitals():
         with connection() as db: rows=[dict(row) for row in db.execute("SELECT h.*,l.label AS location FROM hospitals h LEFT JOIN locations l ON l.id=h.location_id ORDER BY available_beds DESC")]
         return jsonify(hospitals=rows)
+
+    # AI endpoints are strictly advisory. They may read operational data but
+    # persist only AI audit rows through ai.store's narrow allow-list.
+    def persist_ai(kind, result, data):
+        with connection() as db:
+            assessment_id = save_assessment(db, data.get("incident_id"), kind, result, result.get("model_version", ai_service.VERSION), request.user["id"])
+        return assessment_id
+
+    @app.post("/api/ai/classify")
+    @token_required
+    @role_required("admin", "official", "responder")
+    def ai_classify():
+        data=request.get_json() or {}
+        if not data.get("description", "").strip(): return jsonify(error="Report description is required"), 400
+        result=ai_service.classify(data["description"], data.get("reported_type", "")); result["assessment_id"]=persist_ai("classification", result, data)
+        return jsonify(result)
+
+    @app.post("/api/ai/severity")
+    @token_required
+    @role_required("admin", "official", "responder")
+    def ai_severity():
+        data=request.get_json() or {}
+        result=ai_service.severity(data); result["assessment_id"]=persist_ai("severity", result, data)
+        return jsonify(result)
+
+    @app.post("/api/ai/assess")
+    @token_required
+    @role_required("admin", "official", "responder")
+    def ai_assess():
+        data=request.get_json() or {}
+        with connection() as db:
+            teams=[dict(row) for row in db.execute("SELECT * FROM rescue_teams")]
+            hospitals_data=[dict(row) for row in db.execute("SELECT * FROM hospitals")]
+        result=ai_service.assess(data, teams, hospitals_data); result["assessment_id"]=persist_ai("assessment", result, data)
+        return jsonify(result)
+
+    @app.get("/api/ai/incidents/<int:incident_id>/duplicates")
+    @token_required
+    @role_required("admin", "official", "responder")
+    def ai_duplicates(incident_id):
+        with connection() as db:
+            records=[dict(row) for row in db.execute("SELECT i.*,l.label AS location FROM incidents i JOIN locations l ON l.id=i.location_id")]
+        target=next((item for item in records if item["id"] == incident_id), None)
+        if not target: return jsonify(error="Incident not found"), 404
+        result={"duplicates": ai_service.duplicates(target, records), "model_version": ai_service.VERSION, "limitations": ai_service.LIMITATIONS, "source": "rules_fallback"}
+        result["assessment_id"]=persist_ai("duplicates", result, {"incident_id": incident_id})
+        return jsonify(result)
+
+    @app.post("/api/ai/credibility")
+    @token_required
+    @role_required("admin", "official", "responder")
+    def ai_credibility():
+        data=request.get_json() or {}; result=ai_service.credibility(data); result["assessment_id"]=persist_ai("credibility", result, data)
+        return jsonify(result)
+
+    @app.get("/api/ai/forecast")
+    @token_required
+    @role_required("admin", "official", "responder")
+    def ai_forecast():
+        days=max(1, min(30, request.args.get("days", 7, type=int)))
+        with connection() as db: incidents=[dict(row) for row in db.execute("SELECT * FROM incidents")]
+        result=ai_service.forecast(incidents, request.args.get("region", ""), request.args.get("type", ""), days); result["assessment_id"]=persist_ai("forecast", result, {})
+        return jsonify(result)
+
+    @app.post("/api/ai/feedback")
+    @token_required
+    @role_required("admin", "official")
+    def ai_feedback():
+        data=request.get_json() or {}
+        if not isinstance(data.get("assessment_id"), int): return jsonify(error="assessment_id is required"), 400
+        try:
+            with connection() as db: feedback_id=save_feedback(db, data["assessment_id"], request.user["id"], data.get("action", ""), data.get("note", ""))
+            return jsonify(id=feedback_id, message="Feedback recorded for later evaluation; no online retraining occurs."), 201
+        except ValueError as error: return jsonify(error=str(error)), 400
     return app
 
 if __name__ == "__main__": create_app().run(debug=True, port=5000)

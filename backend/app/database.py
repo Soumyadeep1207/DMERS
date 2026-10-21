@@ -23,6 +23,9 @@ CREATE TABLE IF NOT EXISTS missions (id INTEGER PRIMARY KEY, incident_id INTEGER
 CREATE UNIQUE INDEX IF NOT EXISTS one_active_mission_per_incident ON missions(incident_id) WHERE incident_id IS NOT NULL AND status NOT IN ('completed','aborted'); CREATE UNIQUE INDEX IF NOT EXISTS one_active_mission_per_report ON missions(report_id) WHERE report_id IS NOT NULL AND status NOT IN ('completed','aborted');
 CREATE TABLE IF NOT EXISTS simulations (id INTEGER PRIMARY KEY, name TEXT NOT NULL, scenario TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP, user_id INTEGER, FOREIGN KEY(user_id) REFERENCES users(id));
 CREATE TABLE IF NOT EXISTS audit_entries (id INTEGER PRIMARY KEY, actor_id INTEGER, action TEXT NOT NULL, subject TEXT NOT NULL, details TEXT NOT NULL DEFAULT '', created_at TEXT DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(actor_id) REFERENCES users(id)); CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_entries(created_at);
+CREATE TABLE IF NOT EXISTS ai_assessments (id INTEGER PRIMARY KEY, incident_id INTEGER, kind TEXT NOT NULL, output_json TEXT NOT NULL, model_version TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, created_by INTEGER, FOREIGN KEY(incident_id) REFERENCES incidents(id), FOREIGN KEY(created_by) REFERENCES users(id));
+CREATE INDEX IF NOT EXISTS idx_ai_assessments_incident ON ai_assessments(incident_id, created_at);
+CREATE TABLE IF NOT EXISTS ai_feedback (id INTEGER PRIMARY KEY, assessment_id INTEGER NOT NULL, officer_id INTEGER NOT NULL, action TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(assessment_id) REFERENCES ai_assessments(id), FOREIGN KEY(officer_id) REFERENCES users(id), CHECK(action IN ('accepted','overridden','dismissed')));
 """
 
 def connection() -> sqlite3.Connection:
@@ -30,6 +33,12 @@ def connection() -> sqlite3.Connection:
 
 def init_db() -> None:
     with connection() as db:
+        # Upgrade the original local mission table before schema indexes refer
+        # to the relational incident/team/hospital columns.
+        existing = {row[1] for row in db.execute("PRAGMA table_info(missions)")}
+        for column in ("incident_id", "team_id", "hospital_id"):
+            if existing and column not in existing:
+                db.execute(f"ALTER TABLE missions ADD COLUMN {column} INTEGER")
         db.executescript(SCHEMA)
         for role in ('admin','official','responder','volunteer','citizen'): db.execute('INSERT OR IGNORE INTO roles(name) VALUES(?)', (role,))
         if not db.execute("SELECT 1 FROM users WHERE email='admin@rescue.ai'").fetchone(): db.execute('INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)', ('System Admin','admin@rescue.ai',generate_password_hash('Admin@123'),'admin'))
