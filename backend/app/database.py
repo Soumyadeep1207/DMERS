@@ -173,7 +173,6 @@ def init_db() -> None:
         from db import migrate as migrations
         migrations.apply_pending(os.environ["DATABASE_URL"])
     with connection() as db:
-<<<<<<< HEAD
         if using_postgres():
             ignore = " ON CONFLICT(name) DO NOTHING"
             db.executemany("INSERT INTO roles(name) VALUES(?)" + ignore, [(r,) for r in ('admin','official','responder','volunteer','citizen')])
@@ -206,18 +205,6 @@ def init_db() -> None:
                     db.execute('INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)', (name,email,generate_password_hash('Training@123'),role))
         if not db.execute('SELECT 1 FROM rescue_teams').fetchone():
             db.executemany('INSERT INTO rescue_teams(name,capability) VALUES(?,?)', [('Rescue Team A','urban rescue'),('Rescue Team B','flood rescue'),('Fire & Rescue Unit','fire and structural rescue'),('Medical Response Unit','medical evacuation')])
-=======
-        # Upgrade the original local mission table before schema indexes refer
-        # to the relational incident/team/hospital columns.
-        existing = {row[1] for row in db.execute("PRAGMA table_info(missions)")}
-        for column in ("incident_id", "team_id", "hospital_id"):
-            if existing and column not in existing:
-                db.execute(f"ALTER TABLE missions ADD COLUMN {column} INTEGER")
-        db.executescript(SCHEMA)
-        for role in ('admin','official','responder','volunteer','citizen'): db.execute('INSERT OR IGNORE INTO roles(name) VALUES(?)', (role,))
-        if not db.execute("SELECT 1 FROM users WHERE email='admin@rescue.ai'").fetchone(): db.execute('INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)', ('System Admin','admin@rescue.ai',generate_password_hash('Admin@123'),'admin'))
-        if not db.execute('SELECT 1 FROM rescue_teams').fetchone(): db.executemany('INSERT INTO rescue_teams(name,capability) VALUES(?,?)', [('Rescue Team A','urban rescue'),('Rescue Team B','flood rescue'),('Medical Response Unit','medical evacuation')])
->>>>>>> origin/feature/ai-decision-support
         if not db.execute('SELECT 1 FROM hospitals').fetchone():
             loc = db.execute('INSERT INTO locations(label,latitude,longitude,address) VALUES(?,?,?,?)', ('Vellore Government Hospital',12.9165,79.1325,'Vellore')).lastrowid
             db.execute('INSERT INTO hospitals(name,location_id,total_beds,available_beds,status) VALUES(?,?,?,?,?)', ('Vellore Government Hospital',loc,300,84,'accepting'))

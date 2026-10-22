@@ -1,17 +1,12 @@
-<<<<<<< HEAD
 .venv
+.venv/
 __pycache__
+__pycache__/
 .pytest_cache
+*.pyc
 *.db
 *.db-*
 *.log
 tests
 .env
-=======
-.venv/
-__pycache__/
-*.pyc
-*.db
-flask-startup*.log
 ai/models/*.joblib
->>>>>>> origin/feature/ai-decision-support

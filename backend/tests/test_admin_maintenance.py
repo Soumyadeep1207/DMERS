@@ -180,7 +180,7 @@ def test_reference_lists_lead_candidates(people):
 # ------------------------------------------------------------------ migration 003
 def test_migration_003_is_recorded_and_enforced_in_sql(pg_url):
     with psycopg.connect(pg_url) as conn:
-        assert [r[0] for r in conn.execute("SELECT version FROM schema_migrations ORDER BY 1").fetchall()] == ["001", "002", "003"]
+        assert [r[0] for r in conn.execute("SELECT version FROM schema_migrations ORDER BY 1").fetchall()] == ["001", "002", "003", "004"]
         with pytest.raises(psycopg.errors.RaiseException, match="not UNIT_LEAD"):
             conn.execute("UPDATE response.response_units SET lead_user_id = (SELECT id FROM public.users WHERE email = 'gopal.iyer@mail.example.com') WHERE id = 3")
 

@@ -72,7 +72,7 @@ def test_existing_endpoints_unchanged_on_postgres(pg_app):
     c = pg_app.test_client()
     health = c.get("/health").get_json()
     assert {"status", "backend", "database", "review2_database"} <= set(health) and health["status"] == "ok"
-    assert health["response_model"]["installed"] and health["response_model"]["migration_level"] == "003" and health["response_model"]["ok"]
+    assert health["response_model"]["installed"] and health["response_model"]["migration_level"] == "004" and health["response_model"]["ok"]
     assert health["response_model"]["row_counts"]["incidents"] == 14
     reg = c.post("/api/auth/register", json={"name": "New Person", "email": "new.person@example.org", "password": "secret1", "role": "volunteer"})
     assert reg.status_code == 201 and {"token", "user"} <= set(reg.get_json()) and "password" not in reg.get_json()["user"]

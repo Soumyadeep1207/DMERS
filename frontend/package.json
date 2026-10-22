@@ -7,21 +7,15 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-<<<<<<< HEAD
-    "test": "node --test tests/*.test.js",
+    "test": "node --test tests/*.test.js && vitest run",
+    "test:node": "node --test tests/*.test.js",
+    "test:ai": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "os-demo": "node scripts/os-demo.js",
     "os-sync-demo": "node scripts/os-sync-demo.js",
     "os-deadlock-demo": "node scripts/os-deadlock-demo.js",
     "os-memory-demo": "node scripts/os-memory-demo.js",
-    "os-bench": "node scripts/os-bench.js"
-  },
-  "dependencies": {
-    "jspdf": "^2.5.2",
-    "leaflet": "^1.9.4",
-    "react": "^18.3.1",
-=======
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
+    "os-bench": "node scripts/os-bench.js",
     "ai-policies": "node scripts/ai-policies.js",
     "ai-search": "node scripts/ai-search.js",
     "ai-auto": "node scripts/ai-auto.js",
@@ -33,24 +27,15 @@
     "jspdf": "^2.5.2",
     "leaflet": "^1.9.4",
     "react": "^18.3.1",
-    "react-chartjs-2": "^5.3.0",
->>>>>>> origin/feature/ai-decision-support
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
-<<<<<<< HEAD
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.49",
-    "tailwindcss": "^3.4.16",
-    "vite": "^6.0.5"
-=======
     "@vitest/coverage-v8": "^3.2.7",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.16",
     "vite": "^6.0.5",
     "vitest": "^3.2.7"
->>>>>>> origin/feature/ai-decision-support
   }
 }

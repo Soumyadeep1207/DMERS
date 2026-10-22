@@ -8,18 +8,15 @@ from flask_cors import CORS
 from werkzeug.security import check_password_hash, generate_password_hash
 from .database import connection, init_db, save_simulation, simulations, database_health, review2_connection, review2_database_health, is_integrity_error, using_postgres
 from .search import search
-<<<<<<< HEAD
 from .decision_support import build_advisory
 from .route_advisor import plan_response_route
 from . import road_network, schema_export
-from .response_api import register_response_api
+from .response_api import register_response_api, jsonable
 from db.trace import static_trace
-
-TOKEN_LIFETIME = timedelta(hours=int(os.getenv("DMERS_TOKEN_HOURS", "8")))
-=======
 from ai import service as ai_service
 from ai.store import save_assessment, save_feedback
->>>>>>> origin/feature/ai-decision-support
+
+TOKEN_LIFETIME = timedelta(hours=int(os.getenv("DMERS_TOKEN_HOURS", "8")))
 
 def create_app() -> Flask:
     app = Flask(__name__); CORS(app)
@@ -69,7 +66,6 @@ def create_app() -> Flask:
                 return fn(*args, **kwargs)
             return wrapped
         return decorator
-<<<<<<< HEAD
     register_response_api(app, token_required, issue)
 
     @app.cli.command("seed-demo")
@@ -96,12 +92,6 @@ def create_app() -> Flask:
         except Exception:
             app.logger.exception("Automatic response-model demo seed failed")
 
-=======
-    @app.get("/api/health")
-    def health():
-        """Container health probe; no credentials or internal details exposed."""
-        return jsonify(status="ok", service="dmers-backend")
->>>>>>> origin/feature/ai-decision-support
     @app.post("/api/auth/register")
     def register():
         data = request.get_json() or {}; name, email, password = data.get("name", ""), data.get("email", "").lower(), data.get("password", "")
@@ -503,8 +493,10 @@ def create_app() -> Flask:
     @app.post("/api/ai/assess")
     @token_required
     def ai_assess_incident():
-        """Return an explainable, read-only advisory from persisted DMERS facts."""
+        """Return an explainable, read-only advisory: from a persisted incident (incident_id) or from a free-text report (description)."""
         data = request.get_json() or {}
+        if "incident_id" not in data and str(data.get("description", "")).strip():
+            return assess_free_text(data)
         try:
             incident_id = int(data.get("incident_id"))
         except (TypeError, ValueError):
@@ -597,7 +589,6 @@ def create_app() -> Flask:
             else:
                 rows=[dict(row) for row in db.execute("SELECT h.*,l.label AS location FROM hospitals h LEFT JOIN locations l ON l.id=h.location_id ORDER BY available_beds DESC")]
         return jsonify(hospitals=rows)
-<<<<<<< HEAD
     @app.get("/api/hospitals/<int:hospital_id>/transfers")
     @token_required
     def hospital_transfers(hospital_id: int):
@@ -648,7 +639,6 @@ def create_app() -> Flask:
             db.execute("UPDATE missions SET status='at_hospital',updated_at=CURRENT_TIMESTAMP WHERE id=?", (mission_id,))
             db.execute("INSERT INTO audit_entries(actor_id,action,subject,details) VALUES(?,?,?,?)", (request.user["id"], "HOSPITAL_TRANSFER_RECEIVED", mission["report_id"] or f"Mission {mission_id}", f"Hospital {mission['hospital_id']} confirmed transfer receipt"))
         return jsonify(id=mission_id,status="at_hospital")
-=======
 
     # AI endpoints are strictly advisory. They may read operational data but
     # persist only AI audit rows through ai.store's narrow allow-list.
@@ -666,6 +656,16 @@ def create_app() -> Flask:
         result=ai_service.classify(data["description"], data.get("reported_type", "")); result["assessment_id"]=persist_ai("classification", result, data)
         return jsonify(result)
 
+    def assess_free_text(data):
+        """The AI layer's description-based advisory (shares /api/ai/assess with the incident-id advisory)."""
+        if request.user.get("role") not in {"admin", "official", "responder"}:
+            return jsonify(error="This action requires an authorised government or administrator account"), 403
+        with connection() as db:
+            teams=jsonable([dict(row) for row in db.execute("SELECT * FROM rescue_teams")])        # PostgreSQL rows hold datetimes; the AI layer stores JSON
+            hospitals_data=jsonable([dict(row) for row in db.execute("SELECT * FROM hospitals")])
+        result=ai_service.assess(data, teams, hospitals_data); result["assessment_id"]=persist_ai("assessment", result, data)
+        return jsonify(result)
+
     @app.post("/api/ai/severity")
     @token_required
     @role_required("admin", "official", "responder")
@@ -674,23 +674,12 @@ def create_app() -> Flask:
         result=ai_service.severity(data); result["assessment_id"]=persist_ai("severity", result, data)
         return jsonify(result)
 
-    @app.post("/api/ai/assess")
-    @token_required
-    @role_required("admin", "official", "responder")
-    def ai_assess():
-        data=request.get_json() or {}
-        with connection() as db:
-            teams=[dict(row) for row in db.execute("SELECT * FROM rescue_teams")]
-            hospitals_data=[dict(row) for row in db.execute("SELECT * FROM hospitals")]
-        result=ai_service.assess(data, teams, hospitals_data); result["assessment_id"]=persist_ai("assessment", result, data)
-        return jsonify(result)
-
     @app.get("/api/ai/incidents/<int:incident_id>/duplicates")
     @token_required
     @role_required("admin", "official", "responder")
     def ai_duplicates(incident_id):
         with connection() as db:
-            records=[dict(row) for row in db.execute("SELECT i.*,l.label AS location FROM incidents i JOIN locations l ON l.id=i.location_id")]
+            records=jsonable([dict(row) for row in db.execute("SELECT i.*,l.label AS location FROM incidents i JOIN locations l ON l.id=i.location_id")])
         target=next((item for item in records if item["id"] == incident_id), None)
         if not target: return jsonify(error="Incident not found"), 404
         result={"duplicates": ai_service.duplicates(target, records), "model_version": ai_service.VERSION, "limitations": ai_service.LIMITATIONS, "source": "rules_fallback"}
@@ -709,7 +698,7 @@ def create_app() -> Flask:
     @role_required("admin", "official", "responder")
     def ai_forecast():
         days=max(1, min(30, request.args.get("days", 7, type=int)))
-        with connection() as db: incidents=[dict(row) for row in db.execute("SELECT * FROM incidents")]
+        with connection() as db: incidents=jsonable([dict(row) for row in db.execute("SELECT * FROM incidents")])
         result=ai_service.forecast(incidents, request.args.get("region", ""), request.args.get("type", ""), days); result["assessment_id"]=persist_ai("forecast", result, {})
         return jsonify(result)
 
@@ -723,7 +712,6 @@ def create_app() -> Flask:
             with connection() as db: feedback_id=save_feedback(db, data["assessment_id"], request.user["id"], data.get("action", ""), data.get("note", ""))
             return jsonify(id=feedback_id, message="Feedback recorded for later evaluation; no online retraining occurs."), 201
         except ValueError as error: return jsonify(error=str(error)), 400
->>>>>>> origin/feature/ai-decision-support
     return app
 
 if __name__ == "__main__": create_app().run(debug=True, port=5000)
