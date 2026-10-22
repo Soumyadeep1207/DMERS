@@ -24,6 +24,7 @@ COORDINATOR, UNIT_LEAD, ADMIN, CITIZEN = "COORDINATOR", "UNIT_LEAD", "ADMINISTRA
 INCIDENT_TYPES = ("FIRE", "FLOOD", "MEDICAL", "ROAD_ACCIDENT", "GAS_LEAK", "TREE_FALL", "LANDSLIDE", "BUILDING_COLLAPSE", "WATER_RESCUE", "OTHER")
 SEVERITIES = ("LOW", "MODERATE", "HIGH", "CRITICAL")
 PROGRESS = ("EN_ROUTE", "ON_SCENE", "COMPLETED")
+DEMO_EMAIL_PATTERNS = ["%@dmers.example.org", "%@mail.example.com"]     # the fictitious Review II people
 
 
 def jsonable(value):
@@ -84,7 +85,8 @@ def register_response_api(app, token_required, issue_token):
                         raise ApiError(401, "unknown_user", "Your account no longer exists. Sign in again.")
                     if allowed and actor["account_type"] not in allowed:
                         names = " or ".join(a.replace("_", " ").lower() for a in allowed)
-                        raise ApiError(403, "forbidden", f"This action requires a {names} account.")
+                        article = "an" if names[:1] in "aeiou" else "a"
+                        raise ApiError(403, "forbidden", f"This action requires {article} {names} account.")
                     request.actor = actor
                     result = fn(*args, **kwargs)
                     if isinstance(result, Response):
@@ -337,7 +339,7 @@ def register_response_api(app, token_required, issue_token):
         with get_pool().connection() as conn:
             rows = conn.execute("SELECT u.id, u.name, u.email, u.account_type, r.id AS leads_unit_id, r.unit_name AS leads_unit "
                                 "FROM public.users u LEFT JOIN response_units r ON r.lead_user_id = u.id "
-                                "WHERE u.email LIKE %s ORDER BY u.id", ("%@dmers.example.%",)).fetchall()
+                                "WHERE u.email LIKE ANY (%s) ORDER BY u.id", (DEMO_EMAIL_PATTERNS,)).fetchall()
         return {"personas": rows}, 200
 
     @bp.post("/demo/token")
@@ -345,7 +347,7 @@ def register_response_api(app, token_required, issue_token):
     def demo_token():
         user_id = _int(body(), "user_id", minimum=1)
         with get_pool().connection() as conn:
-            user = conn.execute("SELECT id, name, email, role FROM public.users WHERE id = %s AND email LIKE %s", (user_id, "%@dmers.example.%")).fetchone()
+            user = conn.execute("SELECT id, name, email, role FROM public.users WHERE id = %s AND email LIKE ANY (%s)", (user_id, DEMO_EMAIL_PATTERNS)).fetchone()
         if user is None:
             raise ApiError(404, "not_found", "Only demonstration accounts can be used in demo mode.")
         return {"token": issue_token(dict(user)), "user": dict(user)}, 200

@@ -5,5 +5,6 @@ import './styles.css';
 import './map.css';
 import './spatial-ui.css';
 import './pro-ui.css';
+import './response/response.css';
 import App from './RealMapApp.jsx';
 createRoot(document.getElementById('root')).render(<App />);

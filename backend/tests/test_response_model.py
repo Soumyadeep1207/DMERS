@@ -263,3 +263,34 @@ def test_concurrent_dispatch_of_one_unit_has_exactly_one_winner(pg_app, pg_url):
     [t.join() for t in threads]
     assert sorted(results) == [201, 422], results
     assert count(pg_url, "dispatches", "unit_id = %s AND dispatch_status IN ('ASSIGNED','EN_ROUTE','ON_SCENE')", (uid,)) == 1
+
+
+# ------------------------------------------------------------------ regression: gunicorn --preload
+def test_pool_is_never_shared_across_a_fork(pg_url, monkeypatch):
+    """A pool created before gunicorn forks would hand the same sockets to two workers
+    (psycopg.errors.DuplicatePreparedStatement). A child must build its own pool and leave the parent's open."""
+    import os
+    import types
+    from db import pool
+    first = pool.get_pool()
+    real = types.SimpleNamespace(getpid=lambda: os.getpid() + 1, getenv=os.getenv)
+    monkeypatch.setattr(pool, "os", real)                 # pretend we are a forked child
+    second = pool.get_pool()
+    try:
+        assert second is not first and not first.closed
+        with second.connection() as conn:
+            assert conn.execute("SELECT 1 AS one").fetchone()["one"] == 1
+    finally:
+        monkeypatch.undo()
+        first.close()
+        second.close()
+        pool.close_pool()
+
+
+def test_startup_does_not_create_a_pool(pg_url, monkeypatch):
+    from db import pool
+    pool.close_pool()
+    monkeypatch.setenv("DMERS_AUTO_SEED_RESPONSE", "1")
+    from app.app import create_app
+    create_app()
+    assert pool._pool is None, "the master process must not own a pool before workers fork"

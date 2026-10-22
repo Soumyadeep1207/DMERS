@@ -80,10 +80,10 @@ def create_app() -> Flask:
     if using_postgres() and os.getenv("DMERS_ALLOW_DEMO_SEED", "").strip().lower() in {"1", "true", "yes", "on"} \
             and os.getenv("DMERS_AUTO_SEED_RESPONSE", "").strip().lower() in {"1", "true", "yes", "on"}:
         try:
-            from db.pool import get_pool
+            import psycopg
             from db.seed import seed
-            with get_pool().connection() as conn:
-                empty = conn.execute("SELECT NOT EXISTS (SELECT 1 FROM incidents) AS empty").fetchone()["empty"]
+            with psycopg.connect(os.environ["DATABASE_URL"]) as conn:     # a plain connection: no pool is created before gunicorn forks
+                empty = conn.execute("SELECT NOT EXISTS (SELECT 1 FROM response.incidents)").fetchone()[0]
             if empty:
                 seed()
                 app.logger.info("Response-model demonstration data loaded")
