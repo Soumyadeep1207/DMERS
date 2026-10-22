@@ -47,6 +47,10 @@ FRIENDLY = {
     "fk_dispatches_incident": "The incident does not exist.",
     "fk_allocations_resource": "The chosen relief item does not exist.",
     "fk_allocations_incident": "The incident does not exist.",
+    "ex_reservations_no_overlap": "That unit is already reserved for part of this time (an overlapping booking exists).",
+    "ck_reservations_period": "A reservation needs a closed, non-empty time range.",
+    "ck_reservations_purpose": "Purpose must be STANDBY, TRAINING, MAINTENANCE or EXERCISE.",
+    "fk_reservations_unit": "The chosen unit does not exist.",
 }
 
 
@@ -81,6 +85,8 @@ def map_error(exc: Exception) -> ApiError:
     common = {"constraint": constraint, "sqlstate": sqlstate, "trace": trace}
     if isinstance(exc, pg.UniqueViolation):
         return ApiError(409, "unique_violation", text or "That record already exists.", **common)
+    if isinstance(exc, pg.ExclusionViolation):
+        return ApiError(409, "exclusion_violation", text or "That booking overlaps an existing one.", **common)
     if isinstance(exc, pg.CheckViolation):
         return ApiError(422, "check_violation", text or f"A data rule was violated ({constraint}).", **common)
     if isinstance(exc, pg.ForeignKeyViolation):

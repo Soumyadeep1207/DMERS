@@ -1,8 +1,8 @@
 DMERS Review III - transaction demonstration
-Run at 2026-10-23T00:08:51+05:30 against http://127.0.0.1:5003
+Run at 2026-10-23T01:02:34+05:30 against http://127.0.0.1:5003
 Flow shown for each step: user operation -> SQL / PL-pgSQL -> database processing -> update or retrieval -> result
 
-Health: HTTP 200, database PostgreSQL, migration level 004, response model ok=True, rows {'dispatches': 17, 'incident_updates': 69, 'incidents': 15, 'resource_allocations': 15, 'resources': 13, 'response_units': 13, 'zones': 13}
+Health: HTTP 200, database PostgreSQL, migration level 012, response model ok=True, rows {'dispatches': 16, 'incident_updates': 63, 'incidents': 15, 'resource_allocations': 15, 'resources': 12, 'response_units': 12, 'timeline_anchors': 0, 'unit_reservations': 0, 'zones': 12}
 Demonstration data reset: HTTP 200 {'dispatches': 16, 'incident_updates': 61, 'incidents': 14, 'resource_allocations': 15, 'resources': 12, 'response_units': 12, 'zones': 12}
 
 People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh (Katpadi Fire Unit), administrator Meena Krishnan
@@ -13,7 +13,7 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : anonymous
       request     : POST /api/auth/register
       result      : HTTP 201 (as expected)
-      operation   : Register an account (COMMITTED, 102.76 ms)
+      operation   : Register an account (COMMITTED, 103.51 ms)
       components  : constraint users_email_key, constraint users_role_fkey, constraint ck_users_account_type
       tables      : users, roles
       New account       : null -> {"account_type": "CITIZEN", "password_stored_as": "Werkzeug scrypt hash only", "role": "citizen"}  [now]
@@ -25,7 +25,7 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : anonymous
       request     : POST /api/auth/register
       result      : HTTP 409 (as expected) - Email is already registered. Sign in with this address or register a different one.
-      operation   : Register an account (ROLLED_BACK, 96.09 ms)
+      operation   : Register an account (ROLLED_BACK, 97.01 ms)
       components  : constraint users_email_key
       tables      : users
       statements  :
@@ -49,8 +49,8 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : Gopal Iyer (CITIZEN)
       request     : POST /api/response/incidents
       result      : HTTP 201 (as expected)
-      operation   : Report an incident (COMMITTED, 12.83 ms)
-      components  : trigger trg_incidents_timeline
+      operation   : Report an incident (COMMITTED, 11.45 ms)
+      components  : trigger trg_incidents_notify, trigger trg_incidents_timeline
       tables      : incidents, incident_updates
       rows changed: incident_updates inserted 1; incidents inserted 1  (total 2)
       Incident timeline : {"entries": 0} -> {"entries": 1, "first_status": "REPORTED", "last_entry": 1}  [now]
@@ -68,7 +68,7 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : Priya Natarajan (COORDINATOR)
       request     : POST /api/response/incidents/15/dispatch
       result      : HTTP 422 (as expected) - Incident 15 is REPORTED; only VERIFIED or RESPONDING incidents receive units
-      operation   : Dispatch a unit (ROLLED_BACK, 9.61 ms)
+      operation   : Dispatch a unit (ROLLED_BACK, 10.8 ms)
       components  : CALL sp_dispatch_unit, trigger trg_dispatches_guard
       tables      : dispatches, response_units, incidents
       Unit              : {"availability_status": "AVAILABLE", "unit_name": "Katpadi Fire Unit"} -> {"availability_status": "AVAILABLE", "unit_name": "Katpadi Fire Unit"}  [unchanged (rolled back)]
@@ -83,10 +83,10 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       request     : POST /api/response/incidents/15/verify
       result      : HTTP 422 (as expected) - The chosen zone does not exist.
       constraint  : fk_incidents_zone
-      operation   : Verify an incident (ROLLED_BACK, 4.52 ms)
+      operation   : Verify an incident (ROLLED_BACK, 6.51 ms)
       components  : trigger trg_incidents_touch, trigger trg_incidents_transition_guard
       tables      : incidents
-      Incident          : {"severity": "MODERATE", "status": "REPORTED", "updated_at": "2026-10-22T18:38:52.618690+00:00", "zone_id": null} -> {"severity": "MODERATE", "status": "REPORTED", "updated_at": "2026-10-22T18:38:52.618690+00:00", "zone_id": null}  [unchanged (rolled back)]
+      Incident          : {"severity": "MODERATE", "status": "REPORTED", "updated_at": "2026-10-22T19:32:35.871560+00:00", "zone_id": null} -> {"severity": "MODERATE", "status": "REPORTED", "updated_at": "2026-10-22T19:32:35.871560+00:00", "zone_id": null}  [unchanged (rolled back)]
       Timeline          : {"entries": 1, "last_entry": 1} -> {"entries": 1, "last_entry": 1}  [unchanged (rolled back)]
       failed with : sqlstate 23503 constraint fk_incidents_zone
       statements  :
@@ -96,11 +96,11 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : Priya Natarajan (COORDINATOR)
       request     : POST /api/response/incidents/15/verify
       result      : HTTP 200 (as expected)
-      operation   : Verify an incident (COMMITTED, 6.42 ms)
-      components  : trigger trg_incidents_touch, trigger trg_incidents_transition_guard, trigger trg_incidents_timeline
+      operation   : Verify an incident (COMMITTED, 29.11 ms)
+      components  : trigger trg_incidents_touch, trigger trg_incidents_transition_guard, trigger trg_incidents_notify, trigger trg_incidents_timeline
       tables      : incidents, incident_updates
       rows changed: incident_updates inserted 1; incidents updated 1  (total 2)
-      Incident          : {"severity": "MODERATE", "status": "REPORTED", "updated_at": "2026-10-22T18:38:52.618690+00:00", "zone_id": null} -> {"severity": "HIGH", "status": "VERIFIED", "updated_at": "2026-10-22T18:38:52.665655+00:00", "zone_id": 1}  [now]
+      Incident          : {"severity": "MODERATE", "status": "REPORTED", "updated_at": "2026-10-22T19:32:35.871560+00:00", "zone_id": null} -> {"severity": "HIGH", "status": "VERIFIED", "updated_at": "2026-10-22T19:32:35.939149+00:00", "zone_id": 1}  [now]
       Timeline          : {"entries": 1, "last_entry": 1} -> {"entries": 2, "last_entry": 2}  [now]
       statements  :
         [ok] UPDATE incidents SET status = 'VERIFIED', severity = %s, zone_id = %s WHERE id = %s RETURNING id, status, severity, zone_id
@@ -111,7 +111,7 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : Priya Natarajan (COORDINATOR)
       request     : POST /api/response/incidents/15/dispatch
       result      : HTTP 422 (as expected) - Unit 9 is DEPLOYED, not AVAILABLE
-      operation   : Dispatch a unit (ROLLED_BACK, 3.42 ms)
+      operation   : Dispatch a unit (ROLLED_BACK, 6.45 ms)
       components  : CALL sp_dispatch_unit, trigger trg_dispatches_guard
       tables      : dispatches, response_units, incidents
       Unit              : {"availability_status": "DEPLOYED", "unit_name": "SDRF Team Alpha"} -> {"availability_status": "DEPLOYED", "unit_name": "SDRF Team Alpha"}  [unchanged (rolled back)]
@@ -125,8 +125,8 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : Priya Natarajan (COORDINATOR)
       request     : POST /api/response/incidents/15/dispatch
       result      : HTTP 201 (as expected)
-      operation   : Dispatch a unit (COMMITTED, 7.77 ms)
-      components  : CALL sp_dispatch_unit, trigger trg_dispatches_guard, trigger trg_incidents_touch, trigger trg_incidents_transition_guard, trigger trg_incidents_timeline
+      operation   : Dispatch a unit (COMMITTED, 14.11 ms)
+      components  : CALL sp_dispatch_unit, trigger trg_dispatches_guard, trigger trg_dispatches_notify, trigger trg_incidents_touch, trigger trg_incidents_transition_guard, trigger trg_incidents_notify, trigger trg_incidents_timeline
       tables      : dispatches, response_units, incidents, incident_updates
       rows changed: dispatches inserted 1; incident_updates inserted 1; incidents updated 1; response_units updated 1  (total 4)
       NOTICE      : Unit 2 (Katpadi Fire Unit) dispatched to incident 15 by user 9
@@ -142,7 +142,7 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : Gopal Iyer (CITIZEN)
       request     : PATCH /api/response/dispatches/15/2
       result      : HTTP 422 (as expected) - User 17 is not the lead of unit 2 (Katpadi Fire Unit)
-      operation   : Record unit progress (ROLLED_BACK, 3.15 ms)
+      operation   : Record unit progress (ROLLED_BACK, 6.02 ms)
       components  : CALL sp_update_dispatch
       tables      : dispatches, response_units
       Dispatch          : {"arrived_at": null, "cleared_at": null, "dispatch_status": "ASSIGNED"} -> {"arrived_at": null, "cleared_at": null, "dispatch_status": "ASSIGNED"}  [unchanged (rolled back)]
@@ -155,8 +155,8 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : Divya Ramesh (UNIT_LEAD)
       request     : PATCH /api/response/dispatches/15/2
       result      : HTTP 200 (as expected)
-      operation   : Record unit progress (COMMITTED, 6.91 ms)
-      components  : CALL sp_update_dispatch
+      operation   : Record unit progress (COMMITTED, 8.25 ms)
+      components  : CALL sp_update_dispatch, trigger trg_dispatches_notify
       tables      : dispatches, response_units
       rows changed: dispatches updated 1  (total 1)
       NOTICE      : Unit 2 (Katpadi Fire Unit) is now EN_ROUTE at incident 15
@@ -169,7 +169,7 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : Divya Ramesh (UNIT_LEAD)
       request     : PATCH /api/response/dispatches/15/2
       result      : HTTP 422 (as expected) - Dispatch cannot move from EN_ROUTE to COMPLETED
-      operation   : Record unit progress (ROLLED_BACK, 3.08 ms)
+      operation   : Record unit progress (ROLLED_BACK, 3.44 ms)
       components  : CALL sp_update_dispatch
       tables      : dispatches, response_units
       Dispatch          : {"arrived_at": null, "cleared_at": null, "dispatch_status": "EN_ROUTE"} -> {"arrived_at": null, "cleared_at": null, "dispatch_status": "EN_ROUTE"}  [unchanged (rolled back)]
@@ -182,12 +182,12 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : Divya Ramesh (UNIT_LEAD)
       request     : PATCH /api/response/dispatches/15/2
       result      : HTTP 200 (as expected)
-      operation   : Record unit progress (COMMITTED, 6.42 ms)
-      components  : CALL sp_update_dispatch
+      operation   : Record unit progress (COMMITTED, 10.93 ms)
+      components  : CALL sp_update_dispatch, trigger trg_dispatches_notify
       tables      : dispatches, response_units
       rows changed: dispatches updated 1  (total 1)
       NOTICE      : Unit 2 (Katpadi Fire Unit) is now ON_SCENE at incident 15
-      Dispatch          : {"arrived_at": null, "cleared_at": null, "dispatch_status": "EN_ROUTE"} -> {"arrived_at": "2026-10-22T18:38:52.731335+00:00", "cleared_at": null, "dispatch_status": "ON_SCENE"}  [now]
+      Dispatch          : {"arrived_at": null, "cleared_at": null, "dispatch_status": "EN_ROUTE"} -> {"arrived_at": "2026-10-22T19:32:36.064942+00:00", "cleared_at": null, "dispatch_status": "ON_SCENE"}  [now]
       Unit              : {"availability_status": "DEPLOYED", "unit_name": "Katpadi Fire Unit"} -> {"availability_status": "DEPLOYED", "unit_name": "Katpadi Fire Unit"}  [now]
       statements  :
         [ok] CALL "sp_update_dispatch"(%s, %s, %s, %s)
@@ -198,7 +198,7 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : Priya Natarajan (COORDINATOR)
       request     : POST /api/response/incidents/15/allocations
       result      : HTTP 201 (as expected)
-      operation   : Allocate relief (COMMITTED, 9.04 ms)
+      operation   : Allocate relief (COMMITTED, 12.08 ms)
       components  : trigger trg_allocations_stock
       tables      : resource_allocations, incident_updates, resources
       rows changed: incident_updates inserted 1; resource_allocations inserted 1; resources updated 1  (total 3)
@@ -212,7 +212,7 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : Priya Natarajan (COORDINATOR)
       request     : POST /api/response/incidents/15/allocations
       result      : HTTP 201 (as expected)
-      operation   : Allocate relief (COMMITTED, 6.69 ms)
+      operation   : Allocate relief (COMMITTED, 8.36 ms)
       components  : trigger trg_allocations_stock
       tables      : resource_allocations, incident_updates, resources
       rows changed: incident_updates inserted 1; resource_allocations updated 1; resources updated 1  (total 3)
@@ -226,7 +226,7 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : Priya Natarajan (COORDINATOR)
       request     : POST /api/response/incidents/15/allocations
       result      : HTTP 422 (as expected) - Insufficient stock for resource 11: requested 1, available 0
-      operation   : Allocate relief (ROLLED_BACK, 3.09 ms)
+      operation   : Allocate relief (ROLLED_BACK, 2.91 ms)
       components  : trigger trg_allocations_stock
       tables      : resource_allocations
       Stock             : {"quantity_available": 0, "resource_name": "Inflatable rescue boats", "stock_status": "OUT_OF_STOCK"} -> {"quantity_available": 0, "resource_name": "Inflatable rescue boats", "stock_status": "OUT_OF_STOCK"}  [unchanged (rolled back)]
@@ -242,7 +242,7 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : Priya Natarajan (COORDINATOR)
       request     : DELETE /api/response/incidents/15/allocations/7
       result      : HTTP 200 (as expected)
-      operation   : Withdraw an allocation (COMMITTED, 6.93 ms)
+      operation   : Withdraw an allocation (COMMITTED, 12.27 ms)
       components  : trigger trg_allocations_stock
       tables      : resource_allocations, incident_updates, resources
       rows changed: incident_updates inserted 1; resource_allocations deleted 1; resources updated 1  (total 3)
@@ -258,8 +258,8 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : Priya Natarajan (COORDINATOR)
       request     : POST /api/response/incidents/15/close
       result      : HTTP 200 (as expected)
-      operation   : Close an incident (COMMITTED, 8.91 ms)
-      components  : CALL sp_close_incident, trigger trg_incidents_touch, trigger trg_incidents_transition_guard, trigger trg_incidents_timeline, cursor c_open
+      operation   : Close an incident (COMMITTED, 13.99 ms)
+      components  : CALL sp_close_incident, trigger trg_dispatches_notify, trigger trg_incidents_touch, trigger trg_incidents_transition_guard, trigger trg_incidents_notify, trigger trg_incidents_timeline, cursor c_open
       tables      : dispatches, response_units, incidents, incident_updates
       rows changed: dispatches updated 1; incident_updates inserted 2; incidents updated 2; response_units updated 1  (total 6)
       NOTICE      : Unit 2 released (dispatch was ON_SCENE)
@@ -274,7 +274,7 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : Priya Natarajan (COORDINATOR)
       request     : POST /api/response/incidents/15/close
       result      : HTTP 422 (as expected) - Incident 15 cannot be closed from status CLOSED
-      operation   : Close an incident (ROLLED_BACK, 3.34 ms)
+      operation   : Close an incident (ROLLED_BACK, 6.78 ms)
       components  : CALL sp_close_incident
       tables      : dispatches, response_units, incidents
       Incident          : {"status": "CLOSED"} -> {"status": "CLOSED"}  [unchanged (rolled back)]
@@ -295,7 +295,7 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : Meena Krishnan (ADMINISTRATOR)
       request     : POST /api/response/resources/11/restock
       result      : HTTP 200 (as expected)
-      operation   : Adjust relief stock (COMMITTED, 5.43 ms)
+      operation   : Adjust relief stock (COMMITTED, 6.97 ms)
       components  : function fn_stock_status
       tables      : resources
       rows changed: resources updated 1  (total 1)
@@ -309,7 +309,7 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       request     : POST /api/response/resources/11/restock
       result      : HTTP 422 (as expected) - Stock cannot fall below zero.
       constraint  : ck_resources_quantity
-      operation   : Adjust relief stock (ROLLED_BACK, 4.46 ms)
+      operation   : Adjust relief stock (ROLLED_BACK, 2.86 ms)
       components  : (none beyond the statement itself)
       tables      : resources
       Stock             : {"quantity_available": 3, "resource_name": "Inflatable rescue boats"} -> {"quantity_available": 3, "resource_name": "Inflatable rescue boats"}  [unchanged (rolled back)]
@@ -323,8 +323,8 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : Gopal Iyer (CITIZEN)
       request     : POST /api/response/incidents
       result      : HTTP 201 (as expected)
-      operation   : Report an incident (COMMITTED, 12.93 ms)
-      components  : trigger trg_incidents_timeline
+      operation   : Report an incident (COMMITTED, 6.19 ms)
+      components  : trigger trg_incidents_notify, trigger trg_incidents_timeline
       tables      : incidents, incident_updates
       rows changed: incident_updates inserted 1; incidents inserted 1  (total 2)
       Incident timeline : {"entries": 0} -> {"entries": 1, "first_status": "REPORTED", "last_entry": 1}  [now]
@@ -335,11 +335,11 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : Priya Natarajan (COORDINATOR)
       request     : POST /api/response/incidents/16/reject
       result      : HTTP 200 (as expected)
-      operation   : Reject a report (COMMITTED, 19.37 ms)
-      components  : trigger trg_incidents_touch, trigger trg_incidents_transition_guard, trigger trg_incidents_timeline
+      operation   : Reject a report (COMMITTED, 9.21 ms)
+      components  : trigger trg_incidents_touch, trigger trg_incidents_transition_guard, trigger trg_incidents_notify, trigger trg_incidents_timeline
       tables      : incidents, incident_updates
       rows changed: incident_updates inserted 1; incidents updated 1  (total 2)
-      Incident          : {"status": "REPORTED", "updated_at": "2026-10-22T18:38:52.878896+00:00"} -> {"status": "REJECTED", "updated_at": "2026-10-22T18:38:52.899258+00:00"}  [now]
+      Incident          : {"status": "REPORTED", "updated_at": "2026-10-22T19:32:36.221650+00:00"} -> {"status": "REJECTED", "updated_at": "2026-10-22T19:32:36.232479+00:00"}  [now]
       Timeline          : {"entries": 1, "last_entry": 1} -> {"entries": 2, "last_entry": 2}  [now]
       statements  :
         [ok] UPDATE incidents SET status = 'REJECTED' WHERE id = %s RETURNING id, status
@@ -348,7 +348,7 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : Priya Natarajan (COORDINATOR)
       request     : DELETE /api/response/incidents/16
       result      : HTTP 200 (as expected)
-      operation   : Delete an incident (COMMITTED, 10.81 ms)
+      operation   : Delete an incident (COMMITTED, 9.05 ms)
       components  : trigger trg_incident_updates_append_only
       tables      : incidents, incident_updates
       rows changed: incident_updates deleted 2; incidents deleted 1  (total 3)
@@ -362,7 +362,7 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       request     : DELETE /api/response/incidents/15
       result      : HTTP 409 (as expected) - This record has history (dispatches, allocations or timeline) and cannot be deleted.
       constraint  : fk_dispatches_incident
-      operation   : Delete an incident (ROLLED_BACK, 4.88 ms)
+      operation   : Delete an incident (ROLLED_BACK, 2.51 ms)
       components  : trigger trg_incident_updates_append_only
       tables      : incidents, incident_updates
       Incident          : {"status": "CLOSED", "title": "Smoke from a warehouse near the Fort"} -> {"status": "CLOSED", "title": "Smoke from a warehouse near the Fort"}  [unchanged (rolled back)]
@@ -377,7 +377,7 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : Meena Krishnan (ADMINISTRATOR)
       request     : POST /api/response/debug/edit-timeline
       result      : HTTP 422 (as expected) - Timeline entries are append-only (incident 15, update 1)
-      operation   : Attempt to edit the timeline (ROLLED_BACK, 2.45 ms)
+      operation   : Attempt to edit the timeline (ROLLED_BACK, 2.64 ms)
       components  : trigger trg_incident_updates_append_only
       tables      : incident_updates
       failed with : sqlstate P0001
@@ -390,7 +390,7 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : Meena Krishnan (ADMINISTRATOR)
       request     : POST /api/response/zones
       result      : HTTP 201 (as expected)
-      operation   : Create a zone (COMMITTED, 6.05 ms)
+      operation   : Create a zone (COMMITTED, 8.77 ms)
       components  : (none beyond the statement itself)
       tables      : zones, audit_entries
       rows changed: audit_entries inserted 1; zones inserted 1  (total 2)
@@ -403,7 +403,7 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       request     : POST /api/response/zones
       result      : HTTP 409 (as expected) - A zone with that name already exists.
       constraint  : uq_zones_name
-      operation   : Create a zone (ROLLED_BACK, 2.04 ms)
+      operation   : Create a zone (ROLLED_BACK, 2.72 ms)
       components  : (none beyond the statement itself)
       tables      : zones
       failed with : sqlstate 23505 constraint uq_zones_name
@@ -414,7 +414,7 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : Meena Krishnan (ADMINISTRATOR)
       request     : POST /api/response/units
       result      : HTTP 201 (as expected)
-      operation   : Create a response unit (COMMITTED, 5.24 ms)
+      operation   : Create a response unit (COMMITTED, 6.99 ms)
       components  : trigger trg_units_lead_type
       tables      : response_units, audit_entries
       rows changed: audit_entries inserted 1; response_units inserted 1  (total 2)
@@ -426,10 +426,10 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : Meena Krishnan (ADMINISTRATOR)
       request     : PATCH /api/response/units/13
       result      : HTTP 422 (as expected) - User 17 cannot lead a unit: account type is CITIZEN, not UNIT_LEAD
-      operation   : Edit a response unit (ROLLED_BACK, 5.22 ms)
+      operation   : Edit a response unit (ROLLED_BACK, 4.25 ms)
       components  : trigger trg_units_lead_type
       tables      : response_units
-      Unit              : {"contact_phone": "9000088888", "lead_user_id": null, "personnel_count": 5, "unit_name": "Demo Unit 1792694332", "zone_id": 13} -> {"contact_phone": "9000088888", "lead_user_id": null, "personnel_count": 5, "unit_name": "Demo Unit 1792694332", "zone_id": 13}  [unchanged (rolled back)]
+      Unit              : {"contact_phone": "9000088888", "lead_user_id": null, "personnel_count": 5, "unit_name": "Demo Unit 1792697555", "zone_id": 13} -> {"contact_phone": "9000088888", "lead_user_id": null, "personnel_count": 5, "unit_name": "Demo Unit 1792697555", "zone_id": 13}  [unchanged (rolled back)]
       failed with : sqlstate P0001
       statements  :
         [failed] UPDATE response_units SET unit_name = COALESCE(%(name)s, unit_name), contact_phone = COALESCE(%(phone)s, contact_phone), personnel_count = COALESCE(%(
@@ -439,10 +439,10 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       request     : PATCH /api/response/units/13
       result      : HTTP 409 (as expected) - That account already leads another unit (an account leads at most one unit).
       constraint  : uq_units_lead
-      operation   : Edit a response unit (ROLLED_BACK, 5.63 ms)
+      operation   : Edit a response unit (ROLLED_BACK, 3.8 ms)
       components  : trigger trg_units_lead_type
       tables      : response_units
-      Unit              : {"contact_phone": "9000088888", "lead_user_id": null, "personnel_count": 5, "unit_name": "Demo Unit 1792694332", "zone_id": 13} -> {"contact_phone": "9000088888", "lead_user_id": null, "personnel_count": 5, "unit_name": "Demo Unit 1792694332", "zone_id": 13}  [unchanged (rolled back)]
+      Unit              : {"contact_phone": "9000088888", "lead_user_id": null, "personnel_count": 5, "unit_name": "Demo Unit 1792697555", "zone_id": 13} -> {"contact_phone": "9000088888", "lead_user_id": null, "personnel_count": 5, "unit_name": "Demo Unit 1792697555", "zone_id": 13}  [unchanged (rolled back)]
       failed with : sqlstate 23505 constraint uq_units_lead
       statements  :
         [failed] UPDATE response_units SET unit_name = COALESCE(%(name)s, unit_name), contact_phone = COALESCE(%(phone)s, contact_phone), personnel_count = COALESCE(%(
@@ -451,7 +451,7 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       user        : Meena Krishnan (ADMINISTRATOR)
       request     : POST /api/response/resources
       result      : HTTP 201 (as expected)
-      operation   : Add a relief item (COMMITTED, 8.31 ms)
+      operation   : Add a relief item (COMMITTED, 6.36 ms)
       components  : function fn_stock_status
       tables      : resources, audit_entries
       rows changed: audit_entries inserted 1; resources inserted 1  (total 2)
@@ -465,7 +465,7 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
       request     : POST /api/response/resources
       result      : HTTP 422 (as expected) - Stock cannot fall below zero.
       constraint  : ck_resources_quantity
-      operation   : Add a relief item (ROLLED_BACK, 2.78 ms)
+      operation   : Add a relief item (ROLLED_BACK, 2.49 ms)
       components  : (none beyond the statement itself)
       tables      : resources
       failed with : sqlstate 23514 constraint ck_resources_quantity
@@ -498,19 +498,19 @@ People: citizen Gopal Iyer, coordinator Priya Natarajan, unit lead Divya Ramesh 
   Relief stock status - FR-13 / Review II Q5 / stored function fn_stock_status in WHERE and SELECT
   resource_name | available | reorder_level | stock_status
   Portable generators | 2 | 3 | LOW
-  Demo item 1792694332 | 5 | 10 | LOW
+  Demo item 1792697555 | 5 | 10 | LOW
   Tarpaulin sheets | 50 | 60 | LOW
   Water purification tablets | 80 | 100 | LOW
 
   Incident timeline - FR-12 / Review II Q11 / left outer join, string expressions, to_char
   no | logged_at | change | logged_by | note
-  1 | 23-Oct 00:08 | - > REPORTED | Gopal Iyer | Incident reported
-  2 | 23-Oct 00:08 | REPORTED > VERIFIED | Priya Natarajan | Confirmed by caller and photos
-  3 | 23-Oct 00:08 | VERIFIED > RESPONDING | Priya Natarajan | Status set to RESPONDING
-  4 | 23-Oct 00:08 | RESPONDING > RESPONDING | Priya Natarajan | Allocated 30 Blankets
-  5 | 23-Oct 00:08 | RESPONDING > RESPONDING | Priya Natarajan | Allocated 20 Blankets
-  6 | 23-Oct 00:08 | RESPONDING > RESPONDING | Priya Natarajan | Returned 50 Blankets
-  7 | 23-Oct 00:08 | RESPONDING > RESOLVED | Priya Natarajan | Status set to RESOLVED
-  8 | 23-Oct 00:08 | RESOLVED > CLOSED | Priya Natarajan | Fire out, area made safe
+  1 | 23-Oct 01:02 | - > REPORTED | Gopal Iyer | Incident reported
+  2 | 23-Oct 01:02 | REPORTED > VERIFIED | Priya Natarajan | Confirmed by caller and photos
+  3 | 23-Oct 01:02 | VERIFIED > RESPONDING | Priya Natarajan | Status set to RESPONDING
+  4 | 23-Oct 01:02 | RESPONDING > RESPONDING | Priya Natarajan | Allocated 30 Blankets
+  5 | 23-Oct 01:02 | RESPONDING > RESPONDING | Priya Natarajan | Allocated 20 Blankets
+  6 | 23-Oct 01:02 | RESPONDING > RESPONDING | Priya Natarajan | Returned 50 Blankets
+  7 | 23-Oct 01:02 | RESPONDING > RESOLVED | Priya Natarajan | Status set to RESOLVED
+  8 | 23-Oct 01:02 | RESOLVED > CLOSED | Priya Natarajan | Fire out, area made safe
 
 All steps behaved as expected.

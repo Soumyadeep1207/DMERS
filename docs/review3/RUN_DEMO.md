@@ -92,3 +92,16 @@ docker compose exec -T postgres psql -U dmers -d dmers_course -v ON_ERROR_STOP=1
 ```
 
 A copy of them lives in `backend/db/review2/`; a test asserts it is identical to `docs/review2/sql/`.
+
+## 8. Database laboratories
+
+Open **Response Ops > Database lab** (nine panels). Sign in as `meena.krishnan@dmers.example.org` (administrator) for the full set: loading the synthetic history (panel 6) and the road graph (panel 5), anchoring and attacking the chain (panel 1). Coordinators can run the rest; the privacy export (panel 9) is open to every account.
+
+Reproduce the evidence in [dbms_lab_outputs.md](dbms_lab_outputs.md) against a running stack in demo mode (about two minutes; it resets the demonstration data at the end):
+
+```bash
+cd backend
+python -m db.tools.lab_demo --base http://localhost:5003 --rows 200000 > ../docs/review3/dbms_lab_outputs.md
+```
+
+Tests for the laboratories: `pytest backend/tests/test_dbms_lab.py` (needs PostgreSQL, about two minutes) and `node --test frontend/tests/dbLab.test.js`.

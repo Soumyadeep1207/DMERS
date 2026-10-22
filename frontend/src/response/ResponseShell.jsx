@@ -4,8 +4,9 @@ import ResponseOps from './ResponseOps.jsx';
 import Reports from './Reports.jsx';
 import DemoMode from './DemoMode.jsx';
 import AdminPanel from './AdminPanel.jsx';
+import DatabaseLab from './DatabaseLab.jsx';
 
-const TABS = [['ops', 'Operations'], ['reports', 'Reports'], ['admin', 'Administration'], ['demo', 'Guided demo']];
+const TABS = [['ops', 'Operations'], ['reports', 'Reports'], ['admin', 'Administration'], ['lab', 'Database lab'], ['demo', 'Guided demo']];
 const isAdministrator = () => { try { return JSON.parse(localStorage.getItem('dmers-user') || 'null')?.role === 'admin'; } catch { return false; } };
 
 /** The incident-response workspace: transactions, reports and the guided demonstration, plus the activity drawer. */
@@ -16,6 +17,7 @@ export default function ResponseShell({ initial = 'ops' }) {
     {tab === 'ops' && <ResponseOps />}
     {tab === 'reports' && <Reports />}
     {tab === 'admin' && <AdminPanel />}
+    {tab === 'lab' && <DatabaseLab />}
     {tab === 'demo' && <DemoMode />}
     <ActivityPanel />
   </div>;

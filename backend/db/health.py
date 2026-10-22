@@ -7,11 +7,14 @@ from . import trace as tracing
 from .migrate import applied_versions
 from .pool import get_pool
 
-TABLES = ("zones", "incidents", "response_units", "resources", "incident_updates", "dispatches", "resource_allocations")
-FUNCTIONS = ("fn_stock_status", "fn_active_incidents", "fn_response_minutes")
+TABLES = ("zones", "incidents", "response_units", "resources", "incident_updates", "dispatches", "resource_allocations",
+          "unit_reservations", "timeline_anchors")
+FUNCTIONS = ("fn_stock_status", "fn_active_incidents", "fn_response_minutes", "fn_timeline_hash", "fn_verify_timeline", "fn_anchor_timelines",
+             "fn_actor_id", "fn_actor_type", "fn_unit_free_windows")
 PROCEDURES = ("sp_dispatch_unit", "sp_close_incident", "sp_update_dispatch")
 TRIGGERS = ("trg_incidents_timeline", "trg_incidents_touch", "trg_dispatches_guard", "trg_allocations_stock",
-            "trg_incident_updates_append_only", "trg_incidents_transition_guard", "trg_units_lead_type")
+            "trg_incident_updates_append_only", "trg_incidents_transition_guard", "trg_units_lead_type",
+            "trg_incident_updates_chain", "trg_incidents_notify", "trg_dispatches_notify")
 VIEWS = ("v_zone_situation",)
 
 

@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { del, get, patch, post } from './api.js';
+import { connectLive } from './lab/live.js';
 
 const SEVERITY_ORDER = ['CRITICAL', 'HIGH', 'MODERATE', 'LOW'];
 const when = value => (value ? new Date(value).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '—');
@@ -38,6 +39,17 @@ export default function ResponseOps() {
   useEffect(() => { loadList(); }, [loadList]);
   useEffect(() => { loadDetail(selected); }, [selected, loadDetail]);
 
+  // LISTEN/NOTIFY push (database lab 7): PostgreSQL tells this screen when a change commits, so nothing polls.
+  const latest = useRef({});
+  latest.current = { loadList, loadDetail, selected };
+  const [live, setLive] = useState('off');
+  useEffect(() => {
+    if (!type || type === 'CITIZEN') return undefined;
+    let timer;
+    const stop = connectLive(() => { clearTimeout(timer); timer = setTimeout(() => { latest.current.loadList(); if (latest.current.selected) latest.current.loadDetail(latest.current.selected); }, 250); }, setLive);
+    return () => { clearTimeout(timer); stop(); };
+  }, [type]);
+
   /** Run one transaction, show the database's own message on refusal, refresh what changed. */
   const act = async (label, run, after) => {
     setBusy(true);
@@ -63,7 +75,7 @@ export default function ResponseOps() {
 
   return <div className="rs-layout">
     <aside className="dm-panel rs-list">
-      <div className="dm-panel-head"><p className="dm-eyebrow">Incident response</p><h2>Incidents</h2>
+      <div className="dm-panel-head"><p className="dm-eyebrow">Incident response{live === 'live' && <span className="rs-chip ok" title="PostgreSQL pushes changes (LISTEN/NOTIFY); this list does not poll" style={{ marginLeft: 8 }}>live</span>}</p><h2>Incidents</h2>
         <p className="dm-muted">Signed in as <b>{me.name}</b> · {type.replace('_', ' ').toLowerCase()}</p></div>
       <ReportForm types={ref.incident_types} busy={busy} onSubmit={body => act('Report an incident', () => post('/api/response/incidents', body, { person: me.name }), b => b.incident.id)} />
       <div className="dm-row"><label className="rs-field grow"><span>Filter</span><select value={filter} onChange={e => setFilter(e.target.value)}>

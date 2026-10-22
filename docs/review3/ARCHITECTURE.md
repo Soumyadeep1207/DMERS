@@ -91,3 +91,12 @@ All SQL is parameterised; identifiers are composed with `psycopg.sql.Identifier`
 enforced by PostgreSQL. Demo-only endpoints (`/demo/*`, `/debug/edit-timeline`) answer 404 unless `DMERS_DEMO_MODE=1`; reset needs `DMERS_ALLOW_DEMO_SEED=1`. Password hashes are never
 returned, exported or traced. Tokens expire after 8 hours. A connection pool is never shared across a fork (a real bug found during Review III testing: gunicorn `--preload`
 created it in the master process and two workers shared its sockets, raising `DuplicatePreparedStatement`; fixed and covered by regression tests).
+
+## Database laboratories (migrations 005-012)
+
+Nine additions sit beside the Review II objects and reuse the same conventions (idempotent migrations, `response` schema, `dmers.actor_id`, `db_trace`). See [DBMS_LAB.md](DBMS_LAB.md) for each mechanism, its real output and its limits.
+
+* **Triggers added:** `trg_incident_updates_chain` (BEFORE INSERT, hash chain), `trg_incidents_notify` and `trg_dispatches_notify` (AFTER INSERT/UPDATE, `pg_notify`). They appear in `/health.response_model` and in `db_trace` like the Review II triggers; the exclusion constraint `ex_reservations_no_overlap` is listed among the constraints a reservation checks.
+* **Other schemas:** `lab` (synthetic or scratch data only) and `routing` (the OpenStreetMap road graph). Neither holds incident-response records, and the demo reset does not touch them.
+* **Authorisation:** unchanged in the API (account type from `users.account_type`); migration 006 adds database-side policies for the NOLOGIN role `dmers_rls`, which the application does not yet connect as.
+* **Live push:** the API holds one extra, dedicated connection per open stream (`LISTEN dmers_events`), capped at 6 per server process, in addition to the pooled connections.

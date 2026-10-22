@@ -24,6 +24,7 @@ from .pool import SEARCH_PATH, database_url
 GEN_SEED = Path(__file__).resolve().parent / "review2" / "tools" / "gen_seed.py"
 ROLE_OF = {"ADMINISTRATOR": "admin", "COORDINATOR": "official", "UNIT_LEAD": "responder", "CITIZEN": "citizen"}
 RESPONSE_TABLES = ("resource_allocations", "dispatches", "incident_updates", "resources", "response_units", "incidents", "zones")
+TRUNCATE_ALSO = ("unit_reservations", "timeline_anchors")      # dependent lab tables, cleared with the rest on a reset
 REVIEW2_COUNTS = {"incidents": 14, "incident_updates": 61, "dispatches": 16, "resource_allocations": 15, "zones": 12, "response_units": 12, "resources": 12}
 
 
@@ -50,7 +51,7 @@ def _ts(value: str) -> str:
 
 def reset_response_data(conn) -> None:
     """Remove every response-model row (identity restarts). Application users are kept."""
-    tables = sql.SQL(", ").join(sql.SQL("response.{}").format(sql.Identifier(t)) for t in RESPONSE_TABLES)
+    tables = sql.SQL(", ").join(sql.SQL("response.{}").format(sql.Identifier(t)) for t in RESPONSE_TABLES + TRUNCATE_ALSO)
     conn.execute(sql.SQL("TRUNCATE {} RESTART IDENTITY CASCADE").format(tables))
 
 

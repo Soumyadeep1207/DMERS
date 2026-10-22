@@ -78,3 +78,7 @@ See [Review III report](docs/review3/REVIEW3_REPORT.md), [run the demo](docs/rev
 `frontend/` React/Vite dashboard · `backend/` Flask API and SQLite store · `docker-compose.yml` PostgreSQL, API, and web services · `docs/` course documentation · `screenshots/` verification captures.
 
 See [Routing, risk, beds and exports](docs/ROUTING_AND_RISK.md), [Installation Guide](docs/INSTALLATION.md), [User Manual](docs/USER_MANUAL.md), [Architecture](docs/ARCHITECTURE.md), [Algorithms](docs/AI_ALGORITHMS.md), and [Project Report](docs/PROJECT_REPORT.md).
+
+## Database laboratories
+
+Response Ops now has a **Database lab** tab with nine panels that show what PostgreSQL does for DMERS beyond storing rows: a tamper-evident hash-chained timeline, row-level security, isolation-level anomalies, non-overlapping reservations (exclusion constraint), nearest-facility and A* routing inside the database, an EXPLAIN ANALYZE lab, LISTEN/NOTIFY live push, in-database analytics and a privacy-safe export. Details, real outputs and limits: [docs/review3/DBMS_LAB.md](docs/review3/DBMS_LAB.md).

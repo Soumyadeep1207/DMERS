@@ -484,4 +484,7 @@ def register_response_api(app, token_required, issue_token):
             return jsonify(installed=False, reason="PostgreSQL is required"), 200
         return jsonify(jsonable(response_model_health())), 200
 
+    from .lab_api import register_lab_routes          # imported here: lab_api reuses helpers defined above
+    register_lab_routes(bp, endpoint, body, ok)
+
     app.register_blueprint(bp)

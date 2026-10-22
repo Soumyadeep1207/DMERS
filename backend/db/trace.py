@@ -35,6 +35,10 @@ NOTES = {
     "trg_incident_updates_append_only": "T5 (BR-08): timeline entries cannot be edited or deleted directly.",
     "trg_incidents_transition_guard": "R3-1: only legal status transitions are accepted.",
     "trg_units_lead_type": "R3-3 (FR-06): the lead of a unit must hold a UNIT_LEAD account.",
+    "trg_incident_updates_chain": "DBMS lab 1: seals each timeline entry with SHA-256(previous hash + content), so later edits are detectable.",
+    "trg_incidents_notify": "DBMS lab 7: publishes the change on the dmers_events channel when this transaction commits (dropped on rollback).",
+    "trg_dispatches_notify": "DBMS lab 7: publishes the dispatch change on dmers_events at commit.",
+    "ex_reservations_no_overlap": "DBMS lab 4: EXCLUDE USING gist (unit_id WITH =, period WITH &&): no two booked reservations of a unit overlap.",
 }
 
 
@@ -82,7 +86,7 @@ def load(conn, force: bool = False) -> list[TriggerInfo]:
         cons = conn.execute("""
             SELECT c.relname AS tbl, k.conname AS name FROM pg_constraint k
               JOIN pg_class c ON c.oid = k.conrelid JOIN pg_namespace n ON n.oid = c.relnamespace
-             WHERE n.nspname = %s AND k.contype IN ('c', 'u', 'f', 'p') ORDER BY c.relname, k.conname""", (SCHEMA,)).fetchall()
+             WHERE n.nspname = %s AND k.contype IN ('c', 'u', 'f', 'p', 'x') ORDER BY c.relname, k.conname""", (SCHEMA,)).fetchall()
         _constraints = {}
         for r in cons:
             _constraints.setdefault(r["tbl"], []).append(r["name"])

@@ -61,7 +61,7 @@ def test_migration_002_on_a_database_with_existing_rows(pg_admin_url):
             assert conn.execute("SELECT reference, severity FROM public.incidents").fetchall() == [("INC-OLD", "high")]
             mapping = dict(conn.execute("SELECT role, account_type FROM users").fetchall())
             assert mapping == {"admin": "ADMINISTRATOR", "official": "COORDINATOR", "responder": "UNIT_LEAD", "volunteer": "CITIZEN", "citizen": "CITIZEN"}
-            assert conn.execute("SELECT count(*) FROM pg_tables WHERE schemaname='response'").fetchone()[0] == 7
+            assert conn.execute("SELECT count(*) FROM pg_tables WHERE schemaname='response'").fetchone()[0] == 9      # 7 Review II tables + unit_reservations + timeline_anchors (005, 007)
     finally:
         close_pool()
         with psycopg.connect(pg_admin_url, autocommit=True) as conn:
@@ -72,7 +72,7 @@ def test_existing_endpoints_unchanged_on_postgres(pg_app):
     c = pg_app.test_client()
     health = c.get("/health").get_json()
     assert {"status", "backend", "database", "review2_database"} <= set(health) and health["status"] == "ok"
-    assert health["response_model"]["installed"] and health["response_model"]["migration_level"] == "004" and health["response_model"]["ok"]
+    assert health["response_model"]["installed"] and health["response_model"]["migration_level"] == "012" and health["response_model"]["ok"]
     assert health["response_model"]["row_counts"]["incidents"] == 14
     reg = c.post("/api/auth/register", json={"name": "New Person", "email": "new.person@example.org", "password": "secret1", "role": "volunteer"})
     assert reg.status_code == 201 and {"token", "user"} <= set(reg.get_json()) and "password" not in reg.get_json()["user"]
@@ -191,7 +191,8 @@ def test_trace_matches_catalogue(pg_url, pg_app):
         assert trace.verify_manifest(conn) == []
         names = {t.name for t in trace.load(conn)}
     assert names == {"trg_incidents_timeline", "trg_incidents_touch", "trg_dispatches_guard", "trg_allocations_stock",
-                     "trg_incident_updates_append_only", "trg_incidents_transition_guard", "trg_units_lead_type"}
+                     "trg_incident_updates_append_only", "trg_incidents_transition_guard", "trg_units_lead_type",
+                     "trg_incident_updates_chain", "trg_incidents_notify", "trg_dispatches_notify"}
 
 
 # ------------------------------------------------------------------ authorisation and exposure

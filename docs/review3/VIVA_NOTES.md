@@ -81,3 +81,14 @@ The deployed `incidents` table could not be altered in place without changing ex
 
 * Do not claim the trigger list on a failed constraint was observed; it follows PostgreSQL's firing order (see `ARCHITECTURE.md`).
 * Seeded history leaves SDRF Team Alpha deployed at incident 7, the boats out of stock and Katpadi Fire Unit as the only available unit that has a lead. The failure steps rely on exactly that, so use **Reset demonstration data** first.
+
+## Database laboratories
+
+* **Why a hash chain when the trigger already forbids edits?** A superuser can switch triggers off (`session_replication_role = replica`). The chain makes such an edit detectable: each entry hashes the previous hash plus its own content. It is evidence, not prevention, and truncation is only detected for anchored heads.
+* **Why not PostGIS?** It needs a different image under the existing volume, and a libc change under an existing cluster can invalidate text indexes. `cube` + `earthdistance` give GiST k-nearest-neighbour search with the current image; the A* is PL/pgSQL. The cost is speed: about 2.5 s against about 9 ms in Python for the same route.
+* **Why does RLS not break the application?** The application's role owns the tables and RLS is enabled, not forced, so it is exempt. Policies apply to `dmers_rls`. Saying "the API runs as `dmers_rls`" would be untrue today.
+* **Which isolation level stops write skew?** Only SERIALIZABLE (SSI): one transaction fails with 40001 and must be retried. REPEATABLE READ in PostgreSQL is snapshot isolation: no phantoms, still write skew. A lost update at REPEATABLE READ fails with 40001 on the second writer; at READ COMMITTED it silently overwrites unless the UPDATE is `qty = qty - n`.
+* **Why an EXCLUDE constraint rather than a check in Python?** Two requests can pass the check at the same moment. The constraint is enforced by the index under concurrency: the second insert waits for the first to commit and then fails (23P01). The test proves the waiting.
+* **Why BRIN?** 24,576 bytes against 4,513,792 for a B-tree on the same column, at the price of scanning whole block ranges (1.35 ms against 0.56 ms). It only works because rows were loaded in time order.
+* **What does NOTIFY guarantee?** Delivery at commit, nothing on rollback, no queue for absent listeners. So the screen refetches on reconnect.
+* **Is the privacy export differentially private?** With epsilon set, each count has Laplace(1/epsilon) noise (sensitivity 1), which is epsilon-DP for one release. Repeated releases add up and the system keeps no budget ledger; without epsilon it is only small-cell suppression.
