@@ -51,6 +51,12 @@ Sample application administrator: `admin@rescue.ai` / `Admin@123`. Review II cou
 
 Routes follow real Vellore streets (OpenStreetMap, bundled for offline use); road blocks and hazards close or penalise nearby roads; every figure shows its risk factors; the OS Laboratory models hospital beds with exact queueing theory; and the Data tab exports a detailed schema dictionary as CSV. See [Routing, risk, beds and exports](docs/ROUTING_AND_RISK.md).
 
+## Review III: the incident-response database in the running system
+
+The Review II database (zones, incidents, units, relief, dispatches, timeline; functions, procedures, a cursor and triggers) is installed in schema `response` of the application database by migration `002`.
+The **Response Ops** tab runs ten real transactions on it, the **Database activity** drawer explains each one (operation, tables, SQL/PL-pgSQL component, effect, result), and `/demo` is a guided walk-through.
+See [Review III report](docs/review3/REVIEW3_REPORT.md), [run the demo](docs/review3/RUN_DEMO.md), [architecture](docs/review3/ARCHITECTURE.md) and [viva notes](docs/review3/VIVA_NOTES.md).
+
 ## Layout
 
 `frontend/` React/Vite dashboard · `backend/` Flask API and SQLite store · `docker-compose.yml` PostgreSQL, API, and web services · `docs/` course documentation · `screenshots/` verification captures.
