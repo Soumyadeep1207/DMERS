@@ -72,7 +72,7 @@ def test_existing_endpoints_unchanged_on_postgres(pg_app):
     c = pg_app.test_client()
     health = c.get("/health").get_json()
     assert {"status", "backend", "database", "review2_database"} <= set(health) and health["status"] == "ok"
-    assert health["response_model"]["installed"] and health["response_model"]["migration_level"] == "002" and health["response_model"]["ok"]
+    assert health["response_model"]["installed"] and health["response_model"]["migration_level"] == "003" and health["response_model"]["ok"]
     assert health["response_model"]["row_counts"]["incidents"] == 14
     reg = c.post("/api/auth/register", json={"name": "New Person", "email": "new.person@example.org", "password": "secret1", "role": "volunteer"})
     assert reg.status_code == 201 and {"token", "user"} <= set(reg.get_json()) and "password" not in reg.get_json()["user"]
@@ -191,7 +191,7 @@ def test_trace_matches_catalogue(pg_url, pg_app):
         assert trace.verify_manifest(conn) == []
         names = {t.name for t in trace.load(conn)}
     assert names == {"trg_incidents_timeline", "trg_incidents_touch", "trg_dispatches_guard", "trg_allocations_stock",
-                     "trg_incident_updates_append_only", "trg_incidents_transition_guard"}
+                     "trg_incident_updates_append_only", "trg_incidents_transition_guard", "trg_units_lead_type"}
 
 
 # ------------------------------------------------------------------ authorisation and exposure

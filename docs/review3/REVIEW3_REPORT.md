@@ -30,10 +30,10 @@ Quoted from Review I, Table 7 (the actor is in brackets). The last column shows 
 | FR-03 | Report an incident with title, description, type and location; status starts as REPORTED and the first timeline entry is created automatically (Citizen) | T2; trigger `trg_incidents_timeline` writes entry 1 |
 | FR-04 | List and filter incidents by status, severity, type and zone (Coordinator) | Response Ops list (status filter), report Active incidents. Filtering by severity, type and zone is not built into the list |
 | FR-05 | Verify or reject a report; on verification assign its severity and zone (Coordinator) | T3; CHECK `ck_incidents_zone_when_verified` |
-| FR-06 | Maintain zones and response units, including each unit's base zone and lead account (Administrator) | **Not built in Review III.** Zones and units are created by the seed and read by the screens; there is no create or edit screen |
+| FR-06 | Maintain zones and response units, including each unit's base zone and lead account (Administrator) | T11, Administration tab: create and edit zones and units; `trg_units_lead_type` requires the lead to be a UNIT_LEAD account; every change is audited |
 | FR-07 | Dispatch an available unit to a verified incident and record the authorising coordinator; the unit becomes DEPLOYED and the incident RESPONDING (Coordinator) | T4; `sp_dispatch_unit`, `trg_dispatches_guard` |
 | FR-08 | Record dispatch progress (en route, on scene, completed) with timestamps (Unit lead) | T5; `sp_update_dispatch`, only the unit's lead |
-| FR-09 | Maintain the relief catalogue and restock items (Administrator) | T8 restock is built. **Adding or renaming catalogue items is not** |
+| FR-09 | Maintain the relief catalogue and restock items (Administrator) | T8 restock; T11 add and edit relief items (stock changes only through restock and allocation) |
 | FR-10 | Allocate relief stock to an incident only when enough is available, and reduce the stock by the allocated quantity (Coordinator) | T6, T9; `trg_allocations_stock` |
 | FR-11 | Resolve and close an incident: complete its open dispatches and return those units to AVAILABLE (Coordinator) | T7; `sp_close_incident` with its cursor |
 | FR-12 | Show the timeline of an incident: each status change with its time and the account responsible (Coordinator; citizen for own reports) | Incident detail timeline, report Incident timeline, report Accountability |
@@ -123,13 +123,13 @@ reports to return identical rows (nine comparisons pass). The seed reproduces Re
 | `trg_dispatches_guard` (T3) | unit must be AVAILABLE, incident VERIFIED or RESPONDING | T4 (6, 9) |
 | `trg_allocations_stock` (T4) | stock moves, over-allocation refused | T6 (15 to 17), T9 (18) |
 | `trg_incident_updates_append_only` (T5) | timeline cannot be edited or deleted directly | T10 (28), T9 (26 allows the cascade) |
-| Review III: `sp_update_dispatch`, `trg_incidents_transition_guard` | lead-only progress; legal status changes | T5 (11 to 14), T3, T9 |
+| Review III: `sp_update_dispatch`, `trg_incidents_transition_guard`, `trg_units_lead_type` | lead-only progress; legal status changes; a unit's lead must be a UNIT_LEAD account | T5 (11 to 14), T3, T9, T11 (32) |
 | view `v_zone_situation` | zone situation | zone situation report |
 
 ## 9. Real-world transaction demonstrations
 
 Each transaction is a REST endpoint, a React screen and a database component, and returns a `db_trace`. The five guideline questions are answered live by the **Database activity** drawer and
-in `demo_run_log.txt` (28 steps, all behaving as expected on 22 October 2026). Failure paths are part of each demonstration: the whole transaction rolls back and the trace shows every watched value unchanged.
+in `demo_run_log.txt` (36 steps, all behaving as expected on 22 October 2026). Failure paths are part of each demonstration: the whole transaction rolls back and the trace shows every watched value unchanged.
 
 ### T1 Register and sign in (log steps 1 to 3)
 *Operation:* create an account. *Tables:* `users`, `roles`. *Component:* constraints `users_email_key` (UNIQUE), `users_role_fkey`, derived `account_type` with `ck_users_account_type`.
@@ -195,6 +195,14 @@ Deleting an incident with dispatch history is refused with HTTP 409, constraint 
 ### T10 Edit the timeline (step 28)
 `trg_incident_updates_append_only` raises `Timeline entries are append-only (incident 15, update 1)` (SQLSTATE P0001, HTTP 422), even for an administrator.
 
+### T11 Administrator maintenance of reference data (steps 29 to 36; FR-06, FR-09)
+`POST /api/response/zones`, `PATCH /zones/<id>`, `POST /units`, `PATCH /units/<id>`, `POST /resources`, `PATCH /resources/<id>`, administrator only, each one transaction with an audit entry in `audit_entries`.
+*Components:* the table constraints (`uq_zones_name`, `ck_zones_risk_level`, `ck_units_phone`, `ck_units_type`, `uq_units_lead`, `fk_units_zone`, `ck_resources_quantity`, `ck_resources_category`),
+`fn_stock_status` for a new item, and the Review III trigger `trg_units_lead_type` (migration 003), which makes the lead of a unit a UNIT_LEAD account.
+*Effect:* a zone or unit insert changes 2 rows (the row and its audit entry). *Refused, with rollback:* a zone with an existing name (HTTP 409, step 30); a citizen as unit lead (`User 17 cannot lead a unit: account type is CITIZEN, not UNIT_LEAD`,
+HTTP 422, step 32); a lead who already leads another unit (`uq_units_lead`, HTTP 409, step 33); a negative opening stock (`ck_resources_quantity`, step 35); a coordinator (HTTP 403, step 36).
+Stock is never edited through these endpoints: it changes only through restocking and allocation.
+
 ### Concurrency
 `test_concurrent_dispatch_of_one_unit_has_exactly_one_winner`: two simultaneous dispatches of one unit; the results are `[201, 422]` and exactly one active dispatch exists.
 
@@ -204,7 +212,7 @@ The Review II database is now the working core of the application: users, incide
 reports are the Review II queries, and each operation explains itself. Existing features (registration, sign-in, legacy incidents, health) are unchanged and covered by regression tests.
 
 Known limits and open items:
-* FR-06 (maintain zones and units) and the catalogue-maintenance part of FR-09 have no screen or endpoint in Review III (section 3); FR-04 lists and filters by status only.
+* FR-04 lists and filters by status only (section 3). Units cannot be deleted or taken off duty from the Administration tab; they are created, moved to another zone and given or relieved of a lead.
 * The ER diagram is Figure 1 of Review I, referenced rather than redrawn (section 4).
 * The incident-response endpoints and the demonstration need PostgreSQL; on the SQLite fallback they answer HTTP 501.
 * The trace lists BEFORE triggers on a constraint failure by PostgreSQL's firing order rather than by observation (`ARCHITECTURE.md`).
@@ -215,8 +223,8 @@ Known limits and open items:
 | Review III criterion | Marks | Where it is satisfied |
 |---|---|---|
 | Integrated Database Operation | 2 | Migration 002 in the application database; transaction layer `backend/db`; `/health` reports migration level, row counts and the existence of every function, procedure and trigger; `users` shared between application and model; guided demo runs end to end (sections 5, 6, 8; `ARCHITECTURE.md`) |
-| Real-World Transactions (at least 5) | 3 | Ten transactions T1 to T10 with success and rollback paths: 28 headless steps and 25 UI steps, `demo_run_log.txt`, section 9 |
-| SQL/PLSQL Interaction | 2 | 3 functions, 3 procedures, one explicit cursor, 6 triggers each exercised by at least one transaction and visible in the Database activity drawer (section 8) |
+| Real-World Transactions (at least 5) | 3 | Ten transactions T1 to T10 plus T11 reference-data maintenance, each with success and rollback paths: 36 headless steps and 32 UI steps, `demo_run_log.txt`, section 9 |
+| SQL/PLSQL Interaction | 2 | 3 functions, 3 procedures, one explicit cursor, 7 triggers each exercised by at least one transaction and visible in the Database activity drawer (section 8) |
 | Output and Reports | 1 | Nine reports with CSV and black-and-white PDF; rows verified against the original Review II queries (section 7, `report_outputs.md`) |
 | Project Report and Documentation | 1 | This report, `PLAN.md`, `ARCHITECTURE.md`, `RUN_DEMO.md`, `VIVA_NOTES.md` |
 | Viva / Project Understanding | 1 | `VIVA_NOTES.md`; the five-question drawer answers *what, which tables, which component, how affected, what result* for every operation |

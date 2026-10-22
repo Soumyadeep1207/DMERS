@@ -12,7 +12,7 @@ powershell -ExecutionPolicy Bypass -File .\start-project.ps1
 
 The launcher starts PostgreSQL, builds the backend and frontend, and waits for health. On start the backend:
 
-1. applies the pending migrations in order (`001` baseline, `002` incident-response model) and records them in `schema_migrations`;
+1. applies the pending migrations in order (`001` baseline, `002` incident-response model, `003` unit-lead rule) and records them in `schema_migrations`;
 2. with the Compose defaults `DMERS_DEMO_MODE=1`, `DMERS_ALLOW_DEMO_SEED=1` and `DMERS_AUTO_SEED_RESPONSE=1`, loads the Review II
    history (14 incidents, 61 timeline entries, 16 dispatches, 15 allocations) into schema `response` if it is empty.
 
@@ -40,11 +40,12 @@ curl.exe -s http://127.0.0.1:5003/health
 
 * **Database activity** (button at the bottom right) opens the drawer that explains every operation as the five guideline questions.
 * **Reports** tab: nine reports with CSV and black-and-white PDF export.
+* **Administration** tab (administrator only): create and edit zones, response units and relief items.
 
 ## 3. Guided demo
 
 Sign in as the administrator and open `http://127.0.0.1:5175/demo`. Use **Reset demonstration data**, then **Next step**
-(or **Run all remaining**). It runs 25 steps covering T1 to T10, including the refusals.
+(or **Run all remaining**). It runs 32 steps covering T1 to T11, including the refusals.
 
 ## 4. Headless demo and evidence log
 
@@ -61,9 +62,9 @@ PostgreSQL must be reachable (the Compose database is used; each test gets its o
 
 ```powershell
 cd backend
-.\.venv\Scripts\python.exe -m pytest tests -q          # 69 tests
+.\.venv\Scripts\python.exe -m pytest tests -q          # 95 tests
 cd ..\frontend
-npm test                                               # 38 tests
+npm test                                               # 42 tests
 npm run build
 ```
 

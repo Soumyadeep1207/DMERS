@@ -111,12 +111,14 @@ def register_response_api(app, token_required, issue_token):
     @endpoint()
     def reference():
         with get_pool().connection() as conn:
-            zones = conn.execute("SELECT id, zone_name, district, risk_level, fn_active_incidents(id) AS active_incidents FROM zones ORDER BY zone_name").fetchall()
-            units = conn.execute("SELECT r.id, r.unit_name, r.unit_type, r.availability_status, r.zone_id, r.lead_user_id, u.name AS lead_name "
+            zones = conn.execute("SELECT id, zone_name, district, state, risk_level, fn_active_incidents(id) AS active_incidents FROM zones ORDER BY zone_name").fetchall()
+            units = conn.execute("SELECT r.id, r.unit_name, r.unit_type, r.availability_status, r.zone_id, r.lead_user_id, u.name AS lead_name, r.contact_phone, r.personnel_count "
                                  "FROM response_units r LEFT JOIN users u ON u.id = r.lead_user_id ORDER BY r.unit_name").fetchall()
             resources = conn.execute("SELECT id, resource_name, category, unit_of_measure, quantity_available, reorder_level, fn_stock_status(id) AS stock_status "
                                      "FROM resources ORDER BY resource_name").fetchall()
-        return {"zones": zones, "units": units, "resources": resources, "incident_types": INCIDENT_TYPES, "severities": SEVERITIES,
+            leads = conn.execute("SELECT u.id, u.name, r.id AS leads_unit_id, r.unit_name AS leads_unit FROM public.users u "
+                                 "LEFT JOIN response_units r ON r.lead_user_id = u.id WHERE u.account_type = 'UNIT_LEAD' ORDER BY u.name").fetchall()
+        return {"zones": zones, "units": units, "resources": resources, "lead_candidates": leads, "incident_types": INCIDENT_TYPES, "severities": SEVERITIES,
                 "me": {k: request.actor[k] for k in ("id", "name", "account_type")}}, 200
 
     @bp.get("/incidents")
@@ -310,6 +312,122 @@ def register_response_api(app, token_required, issue_token):
             tx.execute("UPDATE incident_updates SET note = %s WHERE incident_id = %s AND update_no = %s",
                        (note, incident_id, update_no), writes=[("incident_updates", "UPDATE", ("note",))])
         return ok({"edited": True}, tx)
+
+    # ------------------------------------------------------------------ FR-06 / FR-09 administrator maintenance
+    def audit(tx, action: str, subject: str, details: str) -> None:
+        """Who changed reference data, written in the same transaction as the change."""
+        tx.execute("INSERT INTO public.audit_entries (actor_id, action, subject, details) VALUES (%s, %s, %s, %s)",
+                   (request.actor["id"], action, subject, details), writes=[("audit_entries", "INSERT", None)])
+
+    def optional_text(data: dict, name: str, upper: bool = False):
+        value = str(data.get(name) or "").strip()
+        return (value.upper() if upper else value) or None
+
+    def nothing_to_change(*values) -> None:
+        if all(v is None for v in values):
+            raise ApiError(400, "nothing_to_change", "Provide at least one field to change.")
+
+    @bp.post("/zones")
+    @endpoint(ADMIN)
+    def create_zone():
+        data = body()
+        name, district, risk = _text(data, "zone_name"), _text(data, "district"), _text(data, "risk_level", upper=True)
+        state = optional_text(data, "state") or "Tamil Nadu"
+        with transaction(request.actor["id"], "Create a zone") as tx:
+            row = tx.one("INSERT INTO zones (zone_name, district, state, risk_level) VALUES (%s, %s, %s, %s) "
+                         "RETURNING id, zone_name, district, state, risk_level", (name, district, state, risk), writes=[("zones", "INSERT", None)])
+            audit(tx, "ZONE_CREATED", row["zone_name"], f"risk {row['risk_level']}, district {row['district']}")
+        return ok({"zone": row}, tx, 201)
+
+    @bp.patch("/zones/<int:zone_id>")
+    @endpoint(ADMIN)
+    def edit_zone(zone_id: int):
+        data = body()
+        name, district, risk = optional_text(data, "zone_name"), optional_text(data, "district"), optional_text(data, "risk_level", upper=True)
+        nothing_to_change(name, district, risk)
+        with transaction(request.actor["id"], "Edit a zone") as tx:
+            tx.watch("Zone", "SELECT zone_name, district, risk_level FROM zones WHERE id = %s", (zone_id,))
+            row = tx.one("UPDATE zones SET zone_name = COALESCE(%(name)s, zone_name), district = COALESCE(%(district)s, district), "
+                         "risk_level = COALESCE(%(risk)s, risk_level) WHERE id = %(id)s RETURNING id, zone_name, district, state, risk_level",
+                         {"name": name, "district": district, "risk": risk, "id": zone_id}, writes=[("zones", "UPDATE", ("zone_name", "district", "risk_level"))])
+            if row is None:
+                raise ApiError(404, "not_found", "Zone not found.")
+            audit(tx, "ZONE_UPDATED", row["zone_name"], "zone details changed")
+        return ok({"zone": row}, tx)
+
+    UNIT_COLUMNS = "id, unit_name, unit_type, contact_phone, personnel_count, availability_status, zone_id, lead_user_id"
+
+    @bp.post("/units")
+    @endpoint(ADMIN)
+    def create_unit():
+        data = body()
+        name, kind, phone = _text(data, "unit_name"), _text(data, "unit_type", upper=True), _text(data, "contact_phone")
+        people, zone_id = _int(data, "personnel_count", minimum=1), _int(data, "zone_id", minimum=1)
+        lead = _int(data, "lead_user_id", minimum=1, required=False)
+        with transaction(request.actor["id"], "Create a response unit") as tx:
+            row = tx.one("INSERT INTO response_units (unit_name, unit_type, contact_phone, personnel_count, zone_id, lead_user_id) "
+                         "VALUES (%s, %s, %s, %s, %s, %s) RETURNING " + UNIT_COLUMNS, (name, kind, phone, people, zone_id, lead),
+                         writes=[("response_units", "INSERT", None)])
+            audit(tx, "UNIT_CREATED", row["unit_name"], f"{row['unit_type']} unit in zone {row['zone_id']}")
+        return ok({"unit": row}, tx, 201)
+
+    @bp.patch("/units/<int:unit_id>")
+    @endpoint(ADMIN)
+    def edit_unit(unit_id: int):
+        data = body()
+        name, phone = optional_text(data, "unit_name"), optional_text(data, "contact_phone")
+        people, zone_id = _int(data, "personnel_count", minimum=1, required=False), _int(data, "zone_id", minimum=1, required=False)
+        set_lead = "lead_user_id" in data                         # present (even null) means "set the lead"
+        lead = _int(data, "lead_user_id", minimum=1, required=False)
+        nothing_to_change(name, phone, people, zone_id, True if set_lead else None)
+        with transaction(request.actor["id"], "Edit a response unit") as tx:
+            tx.watch("Unit", "SELECT unit_name, contact_phone, personnel_count, zone_id, lead_user_id FROM response_units WHERE id = %s", (unit_id,))
+            row = tx.one("UPDATE response_units SET unit_name = COALESCE(%(name)s, unit_name), contact_phone = COALESCE(%(phone)s, contact_phone), "
+                         "personnel_count = COALESCE(%(people)s::smallint, personnel_count), zone_id = COALESCE(%(zone)s::int, zone_id), "
+                         "lead_user_id = CASE WHEN %(set_lead)s THEN %(lead)s::int ELSE lead_user_id END WHERE id = %(id)s RETURNING " + UNIT_COLUMNS,
+                         {"name": name, "phone": phone, "people": people, "zone": zone_id, "set_lead": set_lead, "lead": lead, "id": unit_id},
+                         writes=[("response_units", "UPDATE", ("unit_name", "contact_phone", "personnel_count", "zone_id", "lead_user_id"))])
+            if row is None:
+                raise ApiError(404, "not_found", "Unit not found.")
+            audit(tx, "UNIT_UPDATED", row["unit_name"], "unit details or lead changed")
+        return ok({"unit": row}, tx)
+
+    RESOURCE_COLUMNS = "id, resource_name, category, unit_of_measure, quantity_available, reorder_level"
+
+    @bp.post("/resources")
+    @endpoint(ADMIN)
+    def create_resource():
+        data = body()
+        name, category, measure = _text(data, "resource_name"), _text(data, "category", upper=True), _text(data, "unit_of_measure")
+        quantity = _int(data, "quantity_available", required=False) or 0
+        reorder = _int(data, "reorder_level", required=False) or 0
+        with transaction(request.actor["id"], "Add a relief item") as tx:
+            row = tx.one("INSERT INTO resources (resource_name, category, unit_of_measure, quantity_available, reorder_level) "
+                         "VALUES (%s, %s, %s, %s, %s) RETURNING " + RESOURCE_COLUMNS, (name, category, measure, quantity, reorder),
+                         writes=[("resources", "INSERT", None)])
+            status = tx.one("SELECT fn_stock_status(%s) AS stock_status", (row["id"],), uses=["fn_stock_status"])
+            audit(tx, "RESOURCE_CREATED", row["resource_name"], f"{row['category']}, opening stock {row['quantity_available']}")
+        return ok({"resource": {**row, "stock_status": status["stock_status"]}}, tx, 201)
+
+    @bp.patch("/resources/<int:resource_id>")
+    @endpoint(ADMIN)
+    def edit_resource(resource_id: int):
+        data = body()
+        name, category, measure = optional_text(data, "resource_name"), optional_text(data, "category", upper=True), optional_text(data, "unit_of_measure")
+        reorder = _int(data, "reorder_level", required=False)
+        nothing_to_change(name, category, measure, reorder)          # stock itself changes only through restock or allocation
+        with transaction(request.actor["id"], "Edit a relief item") as tx:
+            tx.watch("Item", "SELECT resource_name, category, unit_of_measure, reorder_level, quantity_available FROM resources WHERE id = %s", (resource_id,))
+            row = tx.one("UPDATE resources SET resource_name = COALESCE(%(name)s, resource_name), category = COALESCE(%(category)s, category), "
+                         "unit_of_measure = COALESCE(%(measure)s, unit_of_measure), reorder_level = COALESCE(%(reorder)s::int, reorder_level) "
+                         "WHERE id = %(id)s RETURNING " + RESOURCE_COLUMNS,
+                         {"name": name, "category": category, "measure": measure, "reorder": reorder, "id": resource_id},
+                         writes=[("resources", "UPDATE", ("resource_name", "category", "unit_of_measure", "reorder_level"))])
+            if row is None:
+                raise ApiError(404, "not_found", "Relief item not found.")
+            status = tx.one("SELECT fn_stock_status(%s) AS stock_status", (resource_id,), uses=["fn_stock_status"])
+            audit(tx, "RESOURCE_UPDATED", row["resource_name"], "catalogue details changed")
+        return ok({"resource": {**row, "stock_status": status["stock_status"]}}, tx)
 
     # ------------------------------------------------------------------ reports
     @bp.get("/reports")

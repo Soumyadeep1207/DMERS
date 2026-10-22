@@ -24,7 +24,7 @@ export default function DemoMode() {
       tokens.current[key] = token.body.token;
     }
     const refs = await get('/api/response/reference', { token: tokens.current.coordinator });
-    ctx.current = newContext(refs.body);
+    ctx.current = newContext(refs.body, undefined, personas.body.personas);
   };
 
   const reset = async () => {

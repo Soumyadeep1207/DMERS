@@ -69,6 +69,11 @@ def template_db(pg_admin_url):
         conn.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
     url = _with_db(pg_admin_url, name)
     old = {k: os.environ.get(k) for k in ("DATABASE_URL", "DMERS_ALLOW_DEMO_SEED")}
+
+    def restore():                      # never leave DATABASE_URL set: the SQLite tests must keep seeing SQLite
+        for key, value in old.items():
+            os.environ.pop(key, None) if value is None else os.environ.__setitem__(key, value)
+
     os.environ["DATABASE_URL"], os.environ["DMERS_ALLOW_DEMO_SEED"] = url, "1"
     try:
         migrate.apply_pending(url)
@@ -76,10 +81,11 @@ def template_db(pg_admin_url):
             conn.cursor().executemany("INSERT INTO roles(name) VALUES (%s) ON CONFLICT DO NOTHING", [(r,) for r in ("admin", "official", "responder", "volunteer", "citizen")])
         seed()
         close_pool()
+    finally:
+        restore()
+    try:
         yield name
     finally:
-        for key, value in old.items():
-            os.environ.pop(key, None) if value is None else os.environ.__setitem__(key, value)
         _drop(pg_admin_url, name)
 
 

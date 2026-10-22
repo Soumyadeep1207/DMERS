@@ -190,6 +190,17 @@ def main() -> int:
     out("\n=== T10 Edit the timeline  (append-only trigger T5, negative demonstration)")
     step("Try to rewrite timeline entry 1", admin_person, "POST", "/api/response/debug/edit-timeline", {"incident_id": iid, "update_no": 1, "note": "tampered"}, 422, "Meena Krishnan (ADMINISTRATOR)")
 
+    out("\n=== T11 Administrator maintenance of reference data  (FR-06 zones and units, FR-09 relief catalogue)")
+    zname, uname, rname = f"Demo Zone {stamp}", f"Demo Unit {stamp}", f"Demo item {stamp}"
+    zone_new = step("Administrator adds a zone", admin_person, "POST", "/api/response/zones", {"zone_name": zname, "district": "Vellore", "risk_level": "MEDIUM"}, 201, "Meena Krishnan (ADMINISTRATOR)")["zone"]["id"]
+    step("Add the same zone again (UNIQUE rejects, rolled back)", admin_person, "POST", "/api/response/zones", {"zone_name": zname, "district": "Vellore", "risk_level": "LOW"}, 409, "Meena Krishnan (ADMINISTRATOR)")
+    unit_new = step("Administrator adds a response unit in the new zone", admin_person, "POST", "/api/response/units", {"unit_name": uname, "unit_type": "RESCUE", "contact_phone": "9000088888", "personnel_count": 5, "zone_id": zone_new}, 201, "Meena Krishnan (ADMINISTRATOR)")["unit"]["id"]
+    step("Make a citizen the unit lead (trigger trg_units_lead_type refuses)", admin_person, "PATCH", f"/api/response/units/{unit_new}", {"lead_user_id": by_name["Gopal Iyer"]["id"]}, 422, "Meena Krishnan (ADMINISTRATOR)")
+    step("Give the unit a lead who already leads another (UNIQUE uq_units_lead)", admin_person, "PATCH", f"/api/response/units/{unit_new}", {"lead_user_id": by_name["Divya Ramesh"]["id"]}, 409, "Meena Krishnan (ADMINISTRATOR)")
+    step("Administrator adds a relief item (stock 5, reorder level 10: LOW)", admin_person, "POST", "/api/response/resources", {"resource_name": rname, "category": "WATER", "unit_of_measure": "cans", "quantity_available": 5, "reorder_level": 10}, 201, "Meena Krishnan (ADMINISTRATOR)")
+    step("Add an item with negative opening stock (CHECK rejects)", admin_person, "POST", "/api/response/resources", {"resource_name": rname + " B", "category": "FOOD", "unit_of_measure": "packets", "quantity_available": -5}, 422, "Meena Krishnan (ADMINISTRATOR)")
+    step("A coordinator cannot add a zone", coordinator, "POST", "/api/response/zones", {"zone_name": "X", "district": "Y", "risk_level": "LOW"}, 403, "Priya Natarajan (COORDINATOR)")
+
     out("\n=== Reports  (read-only SQL from Review II, run against live data)")
     for key, params in (("zone-situation", ""), ("command-board", ""), ("stock-status", "?only_low=true"), ("incident-timeline", f"?incident_id={iid}")):
         status, report = coordinator.call("GET", f"/api/response/reports/{key}{params}")

@@ -37,7 +37,7 @@ Schema `response` holds `zones`, `incidents`, `response_units`, `resources`, `in
 `users` is not duplicated: the foreign keys and the procedures resolve `users` to `public.users`, which gained one derived column,
 `account_type`, generated from the application's `role` (admin, official, responder, volunteer, citizen map to ADMINISTRATOR,
 COORDINATOR, UNIT_LEAD, CITIZEN, CITIZEN). Review III added one trigger (`trg_incidents_transition_guard`) and one procedure
-(`sp_update_dispatch`), documented in `PLAN.md` decision D7.
+(`sp_update_dispatch`), documented in `PLAN.md` decision D7. Migration `003` adds a third, `trg_units_lead_type`, so that the lead of a response unit must hold a UNIT_LEAD account (Review I, Table 9, states the rule; Review II left it to the application). It is a separate migration because `002` was already applied to running databases, which also exercises the recorded-migration runner.
 
 ## Migration and rollback story
 

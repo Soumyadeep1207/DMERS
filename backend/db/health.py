@@ -11,7 +11,7 @@ TABLES = ("zones", "incidents", "response_units", "resources", "incident_updates
 FUNCTIONS = ("fn_stock_status", "fn_active_incidents", "fn_response_minutes")
 PROCEDURES = ("sp_dispatch_unit", "sp_close_incident", "sp_update_dispatch")
 TRIGGERS = ("trg_incidents_timeline", "trg_incidents_touch", "trg_dispatches_guard", "trg_allocations_stock",
-            "trg_incident_updates_append_only", "trg_incidents_transition_guard")
+            "trg_incident_updates_append_only", "trg_incidents_transition_guard", "trg_units_lead_type")
 VIEWS = ("v_zone_situation",)
 
 

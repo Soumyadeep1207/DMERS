@@ -34,6 +34,7 @@ NOTES = {
     "trg_allocations_stock": "T4 (FR-10, BR-07): moves stock, refuses over-allocation, adds a timeline note.",
     "trg_incident_updates_append_only": "T5 (BR-08): timeline entries cannot be edited or deleted directly.",
     "trg_incidents_transition_guard": "R3-1: only legal status transitions are accepted.",
+    "trg_units_lead_type": "R3-3 (FR-06): the lead of a unit must hold a UNIT_LEAD account.",
 }
 
 

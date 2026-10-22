@@ -67,13 +67,31 @@ export const STEPS = [
     request: ctx => ['DELETE', `${R}/incidents/${ctx.incident}`, null] },
   { id: 't10-append', group: 'T10', title: 'Try to rewrite timeline entry 1', person: 'admin', expect: 422, failure: true, why: 'Trigger T5 makes the timeline append-only, even for administrators.',
     request: ctx => ['POST', `${R}/debug/edit-timeline`, { incident_id: ctx.incident, update_no: 1, note: 'tampered' }] },
+  { id: 't11-zone', group: 'T11', title: 'Administrator adds a zone', person: 'admin', expect: 201, why: 'FR-06: INSERT into zones (CHECK on risk level, UNIQUE name) and an audit entry, in one transaction.',
+    request: ctx => ['POST', `${R}/zones`, { zone_name: ctx.zoneName, district: 'Vellore', risk_level: 'MEDIUM' }],
+    after: (ctx, body) => { ctx.newZone = body.zone.id; } },
+  { id: 't11-zone-dup', group: 'T11', title: 'Add the same zone again', person: 'admin', expect: 409, failure: true, why: 'UNIQUE uq_zones_name refuses it; the audit entry rolls back with it.',
+    request: ctx => ['POST', `${R}/zones`, { zone_name: ctx.zoneName, district: 'Vellore', risk_level: 'LOW' }] },
+  { id: 't11-unit', group: 'T11', title: 'Administrator adds a response unit in the new zone', person: 'admin', expect: 201, why: 'FR-06: INSERT into response_units (phone CHECK, personnel CHECK, zone foreign key); availability takes its DEFAULT.',
+    request: ctx => ['POST', `${R}/units`, { unit_name: ctx.unitName, unit_type: 'RESCUE', contact_phone: '9000088888', personnel_count: 5, zone_id: ctx.newZone }],
+    after: (ctx, body) => { ctx.newUnit = body.unit.id; } },
+  { id: 't11-lead-citizen', group: 'T11', title: 'Make a citizen the unit lead', person: 'admin', expect: 422, failure: true, why: 'Trigger trg_units_lead_type: only a UNIT_LEAD account may lead a unit.',
+    request: ctx => ['PATCH', `${R}/units/${ctx.newUnit}`, { lead_user_id: ctx.userId('Gopal Iyer') }] },
+  { id: 't11-lead-taken', group: 'T11', title: 'Give the unit a lead who already leads another', person: 'admin', expect: 409, failure: true, why: 'UNIQUE uq_units_lead: an account leads at most one unit.',
+    request: ctx => ['PATCH', `${R}/units/${ctx.newUnit}`, { lead_user_id: ctx.userId('Divya Ramesh') }] },
+  { id: 't11-resource', group: 'T11', title: 'Administrator adds a relief item', person: 'admin', expect: 201, why: 'FR-09: INSERT into resources; fn_stock_status reports LOW because 5 is below the reorder level of 10.',
+    request: ctx => ['POST', `${R}/resources`, { resource_name: ctx.resourceName, category: 'WATER', unit_of_measure: 'cans', quantity_available: 5, reorder_level: 10 }] },
+  { id: 't11-resource-neg', group: 'T11', title: 'Add an item with negative opening stock', person: 'admin', expect: 422, failure: true, why: 'CHECK ck_resources_quantity refuses it.',
+    request: ctx => ['POST', `${R}/resources`, { resource_name: `${ctx.resourceName} B`, category: 'FOOD', unit_of_measure: 'packets', quantity_available: -5 }] },
 ];
 
-export const TRANSACTION_GROUPS = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10'];
+export const TRANSACTION_GROUPS = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11'];
 
-export function newContext(refs, stamp = Date.now()) {
+export function newContext(refs, stamp = Date.now(), people = []) {
   const byName = (items, key) => Object.fromEntries(items.map(i => [i[key], i.id]));
   const units = byName(refs.units, 'unit_name'), resources = byName(refs.resources, 'resource_name'), zones = byName(refs.zones, 'zone_name');
   const need = (map, name) => { if (!(name in map)) throw new Error(`Demonstration data is missing "${name}". Use Reset to reload it.`); return map[name]; };
-  return { email: `demo.citizen.${stamp}@example.org`, unit: n => need(units, n), resource: n => need(resources, n), zone: n => need(zones, n) };
+  const users = Object.fromEntries(people.map(p => [p.name, p.id]));
+  return { email: `demo.citizen.${stamp}@example.org`, zoneName: `Demo Zone ${stamp}`, unitName: `Demo Unit ${stamp}`, resourceName: `Demo item ${stamp}`,
+    unit: n => need(units, n), resource: n => need(resources, n), zone: n => need(zones, n), userId: n => need(users, n) };
 }
