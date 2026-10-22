@@ -164,14 +164,13 @@ def is_integrity_error(error: Exception) -> bool:
 
 def init_db() -> None:
     seed_demo_data = os.getenv("DMERS_SEED_DEMO_DATA", "false" if using_postgres() else "true").strip().lower() in {"1", "true", "yes", "on"}
+    if using_postgres():
+        # Ordered, recorded migrations (001 baseline, 002 incident-response model). Each file is run
+        # whole: PL/pgSQL bodies contain semicolons, so the old split-on-";" approach cannot be used.
+        from db import migrate as migrations
+        migrations.apply_pending(os.environ["DATABASE_URL"])
     with connection() as db:
         if using_postgres():
-            # The checked-in SQL migration is idempotent and is also mounted into
-            # PostgreSQL's init directory by docker-compose.
-            migration = "\n".join(line for line in MIGRATION_PATH.read_text(encoding="utf-8").splitlines() if not line.lstrip().startswith("--"))
-            for statement in migration.split(";"):
-                if statement.strip():
-                    db.execute(statement)
             ignore = " ON CONFLICT(name) DO NOTHING"
             db.executemany("INSERT INTO roles(name) VALUES(?)" + ignore, [(r,) for r in ('admin','official','responder','volunteer','citizen')])
         else:

@@ -9,6 +9,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN addgroup --system app && adduser --system --ingroup app app
 COPY --chown=app:app run.py ./run.py
 COPY --chown=app:app app ./app
+COPY --chown=app:app db ./db
 COPY --chown=app:app migrations ./migrations
 
 USER app
@@ -25,6 +26,7 @@ COPY requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 COPY run.py ./run.py
 COPY app ./app
+COPY db ./db
 COPY migrations ./migrations
 EXPOSE 5000
 CMD ["python", "-m", "flask", "--app", "run", "run", "--debug", "--host", "0.0.0.0", "--port", "5000"]

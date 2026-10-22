@@ -1,5 +1,5 @@
 from __future__ import annotations
-import os, random, math
+import os, random, math, time
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 import jwt
@@ -11,6 +11,8 @@ from .search import search
 from .decision_support import build_advisory
 from .route_advisor import plan_response_route
 from . import road_network, schema_export
+from .response_api import register_response_api
+from db.trace import static_trace
 
 TOKEN_LIFETIME = timedelta(hours=int(os.getenv("DMERS_TOKEN_HOURS", "8")))
 
@@ -24,7 +26,15 @@ def create_app() -> Flask:
         database = database_health()
         review2 = review2_database_health()
         healthy = database.get("connected", False) and (not review2["configured"] or review2["connected"])
-        return jsonify(status="ok" if healthy else "error", backend="running", database=database, review2_database=review2), (200 if healthy else 503)
+        response_model = {"installed": False, "reason": "PostgreSQL is required"}
+        if using_postgres():
+            try:
+                from db.health import response_model_health
+                response_model = response_model_health()
+            except Exception:
+                app.logger.exception("Response-model health check failed")
+                response_model = {"installed": False, "ok": False, "error": "unavailable"}
+        return jsonify(status="ok" if healthy else "error", backend="running", database=database, review2_database=review2, response_model=response_model), (200 if healthy else 503)
 
     def token_required(fn):
         @wraps(fn)
@@ -54,27 +64,65 @@ def create_app() -> Flask:
                 return fn(*args, **kwargs)
             return wrapped
         return decorator
+    register_response_api(app, token_required, issue)
+
+    @app.cli.command("seed-demo")
+    def seed_demo_command():
+        """Load the Review II demonstration data (needs DMERS_ALLOW_DEMO_SEED=1)."""
+        import click
+        from db.seed import seed
+        reset = os.getenv("DMERS_SEED_RESET", "").strip().lower() in {"1", "true", "yes", "on"}
+        try:
+            click.echo(str(seed(reset=reset)))
+        except (PermissionError, RuntimeError) as error:
+            raise click.ClickException(str(error))
+
+    if using_postgres() and os.getenv("DMERS_ALLOW_DEMO_SEED", "").strip().lower() in {"1", "true", "yes", "on"} \
+            and os.getenv("DMERS_AUTO_SEED_RESPONSE", "").strip().lower() in {"1", "true", "yes", "on"}:
+        try:
+            from db.pool import get_pool
+            from db.seed import seed
+            with get_pool().connection() as conn:
+                empty = conn.execute("SELECT NOT EXISTS (SELECT 1 FROM incidents) AS empty").fetchone()["empty"]
+            if empty:
+                seed()
+                app.logger.info("Response-model demonstration data loaded")
+        except Exception:
+            app.logger.exception("Automatic response-model demo seed failed")
+
     @app.post("/api/auth/register")
     def register():
         data = request.get_json() or {}; name, email, password = data.get("name", ""), data.get("email", "").lower(), data.get("password", "")
         role = data.get("role", "citizen") if data.get("role") in {"citizen", "volunteer", "responder"} else "citizen"
         if not name or "@" not in email or len(password) < 6: return jsonify(error="Provide a name, valid email, and password of 6+ characters"), 400
+        started = time.perf_counter()
+        register_sql = "INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)"
         try:
             with connection() as db:
-                cur = db.execute("INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)", (name, email, generate_password_hash(password), role)); user = dict(db.execute("SELECT id,name,email,role FROM users WHERE id=?", (cur.lastrowid,)).fetchone())
+                cur = db.execute(register_sql, (name, email, generate_password_hash(password), role)); user = dict(db.execute("SELECT id,name,email,role FROM users WHERE id=?", (cur.lastrowid,)).fetchone())
+                account_type = db.execute("SELECT account_type FROM users WHERE id=?", (user["id"],)).fetchone()[0] if using_postgres() else None
         except Exception as error:
             if is_integrity_error(error):
-                return jsonify(error="Email is already registered. Sign in with this address or register a different one."), 409
+                trace = static_trace("Register an account", tables=["users"], statements=[register_sql], outcome="rolled_back", duration_ms=(time.perf_counter() - started) * 1000,
+                                     constraints=["users_email_key (UNIQUE e-mail)"], components=["constraint users_email_key"])
+                return jsonify(error="Email is already registered. Sign in with this address or register a different one.", db_trace=trace), 409
             app.logger.exception("Account registration failed")
             return jsonify(error="Registration is temporarily unavailable. Check the database connection and try again."), 503
-        return jsonify(token=issue(user), user=user), 201
+        trace = static_trace("Register an account", tables=["users", "roles"], statements=[register_sql, "SELECT account_type FROM users WHERE id = ?"] if account_type else [register_sql],
+                             constraints=["users_email_key (UNIQUE e-mail)", "users_role_fkey (role must exist in roles)", "ck_users_account_type (derived account type)"],
+                             components=["constraint users_email_key", "constraint users_role_fkey"] + (["constraint ck_users_account_type"] if account_type else []),
+                             rows_affected=1, duration_ms=(time.perf_counter() - started) * 1000,
+                             effects=[{"label": "New account", "before": None, "after": {"role": user["role"], "account_type": account_type, "password_stored_as": "Werkzeug scrypt hash only"}}])
+        return jsonify(token=issue(user), user=user, db_trace=trace), 201
     @app.post("/api/auth/login")
     def login():
         data = request.get_json() or {}
         with connection() as db: row = db.execute("SELECT * FROM users WHERE email=?", (data.get("email", "").lower(),)).fetchone()
         if not row or not check_password_hash(row["password"], data.get("password", "")): return jsonify(error="Invalid credentials"), 401
         user = profile_for({k: row[k] for k in ("id", "name", "email", "role")})
-        return jsonify(token=issue(user), user=user)
+        trace = static_trace("Sign in", tables=["users", "partner_profiles"], statements=["SELECT * FROM users WHERE email = ?", "SELECT portal,institution,hospital_id FROM partner_profiles WHERE user_id = ?"],
+                             components=["function check_password_hash (Werkzeug scrypt)"], effects=[{"label": "Credentials", "before": None, "after": {"password_hash_returned": False, "token_lifetime_hours": int(TOKEN_LIFETIME.total_seconds() // 3600)}}])
+        return jsonify(token=issue(user), user=user, db_trace=trace)
     @app.post("/api/admin/partner-accounts")
     @token_required
     @role_required("admin")

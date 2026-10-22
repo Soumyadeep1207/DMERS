@@ -27,6 +27,10 @@ services:
       COURSE_DATABASE_URL: postgresql://dmers:${POSTGRES_PASSWORD}@postgres:5432/dmers_course
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in your local .env file}
       DMERS_SEED_DEMO_DATA: "true"
+      # Review III demonstration: loads the Review II history into the incident-response schema on first start
+      DMERS_DEMO_MODE: "${DMERS_DEMO_MODE:-1}"
+      DMERS_ALLOW_DEMO_SEED: "${DMERS_ALLOW_DEMO_SEED:-1}"
+      DMERS_AUTO_SEED_RESPONSE: "${DMERS_AUTO_SEED_RESPONSE:-1}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -64,11 +68,15 @@ services:
       COURSE_DATABASE_URL: postgresql://dmers:${POSTGRES_PASSWORD}@postgres:5432/dmers_course
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in your local .env file}
       DMERS_SEED_DEMO_DATA: "true"
+      DMERS_DEMO_MODE: "${DMERS_DEMO_MODE:-1}"
+      DMERS_ALLOW_DEMO_SEED: "${DMERS_ALLOW_DEMO_SEED:-1}"
+      DMERS_AUTO_SEED_RESPONSE: "${DMERS_AUTO_SEED_RESPONSE:-1}"
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
       - ./backend/app:/app/app
+      - ./backend/db:/app/db
       - ./backend/migrations:/app/migrations:ro
       - ./backend/run.py:/app/run.py:ro
     ports: ["127.0.0.1:5002:5000"]
