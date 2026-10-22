@@ -1,0 +1,435 @@
+== 00-03: reset, tables and constraints, PL/pgSQL objects, demonstration data
+== 04: INSERT, UPDATE and DELETE
+SET TIME ZONE 'Asia/Kolkata';
+SET
+SET client_min_messages = notice;
+SET
+SELECT 'users' AS relation, count(*) AS row_count FROM users
+UNION ALL SELECT 'zones', count(*) FROM zones
+UNION ALL SELECT 'incidents', count(*) FROM incidents
+UNION ALL SELECT 'response_units', count(*) FROM response_units
+UNION ALL SELECT 'resources', count(*) FROM resources
+UNION ALL SELECT 'incident_updates', count(*) FROM incident_updates
+UNION ALL SELECT 'dispatches', count(*) FROM dispatches
+UNION ALL SELECT 'resource_allocations', count(*) FROM resource_allocations;
+       relation       | row_count 
+----------------------+-----------
+ users                |        16
+ zones                |        12
+ incidents            |        14
+ response_units       |        12
+ resources            |        12
+ incident_updates     |        61
+ dispatches           |        16
+ resource_allocations |        15
+
+INSERT INTO incidents (title, description, incident_type, location, reported_by)
+VALUES ('Waterlogging under Katpadi railway underpass', 'Two-wheelers stalled in water',
+        'FLOOD', 'Railway underpass, Katpadi', 16)
+RETURNING id, status, severity, zone_id, to_char(created_at, 'DD-Mon HH24:MI') AS reported;
+ id |  status  | severity | zone_id |   reported   
+----+----------+----------+---------+--------------
+ 15 | REPORTED | MODERATE |         | 12-Oct 20:10
+
+INSERT 0 1
+SELECT update_no, previous_status, new_status, note, logged_by
+FROM incident_updates WHERE incident_id = 15;
+ update_no | previous_status | new_status |       note        | logged_by 
+-----------+-----------------+------------+-------------------+-----------
+         1 |                 | REPORTED   | Incident reported |        16
+
+SET dmers.actor_id = '3';
+SET
+UPDATE incidents
+SET status = 'VERIFIED', severity = 'HIGH', zone_id = 2
+WHERE id = 15
+RETURNING id, status, severity, zone_id,
+          to_char(updated_at, 'DD-Mon HH24:MI') AS updated;
+ id |  status  | severity | zone_id |   updated    
+----+----------+----------+---------+--------------
+ 15 | VERIFIED | HIGH     |       2 | 12-Oct 20:10
+
+UPDATE 1
+UPDATE dispatches
+SET dispatch_status = 'ON_SCENE', arrived_at = now()
+WHERE incident_id = 7 AND unit_id = 11
+RETURNING incident_id, unit_id, dispatch_status;
+ incident_id | unit_id | dispatch_status 
+-------------+---------+-----------------
+           7 |      11 | ON_SCENE
+
+UPDATE 1
+UPDATE resources
+SET quantity_available = quantity_available + 100
+WHERE resource_name = 'Tarpaulin sheets';
+UPDATE 1
+SELECT resource_name, quantity_available,
+       fn_stock_status(id) AS stock_status
+FROM resources WHERE resource_name = 'Tarpaulin sheets';
+  resource_name   | quantity_available | stock_status 
+------------------+--------------------+--------------
+ Tarpaulin sheets |                150 | ADEQUATE
+
+SELECT count(*) AS timeline_rows FROM incident_updates WHERE incident_id = 8;
+ timeline_rows 
+---------------
+             2
+
+DELETE FROM incidents WHERE id = 8 AND status = 'REJECTED';
+DELETE 1
+SELECT count(*) AS timeline_rows FROM incident_updates WHERE incident_id = 8;
+ timeline_rows 
+---------------
+             0
+
+== 05: fifteen queries
+SET TIME ZONE 'Asia/Kolkata';
+SET
+SET client_min_messages = notice;
+SET
+SELECT id, title, severity, status FROM incidents WHERE status IN ('VERIFIED', 'RESPONDING')
+ORDER BY CASE severity WHEN 'CRITICAL' THEN 1 WHEN 'HIGH' THEN 2 WHEN 'MODERATE' THEN 3 ELSE 4 END, created_at;
+ id |                     title                      | severity |   status   
+----+------------------------------------------------+----------+------------
+  7 | Palar river overflow near Vellore Fort         | CRITICAL | RESPONDING
+ 10 | Rising water level at Anaicut check dam        | HIGH     | VERIFIED
+ 11 | Electrical fire in apartment block             | HIGH     | RESPONDING
+ 14 | Compound wall collapse after heavy rain        | HIGH     | RESPONDING
+ 15 | Waterlogging under Katpadi railway underpass   | HIGH     | VERIFIED
+  9 | Waterlogging in Sathuvachari low-lying streets | MODERATE | VERIFIED
+
+SELECT i.id, u.full_name AS reporter,
+       coalesce(z.zone_name, '(unassigned)') AS zone, i.status
+FROM incidents i
+JOIN users u ON u.id = i.reported_by
+LEFT JOIN zones z ON z.id = i.zone_id
+WHERE i.created_at >= DATE '2026-10-11'
+ORDER BY i.id;
+ id |   reporter    |     zone     |   status   
+----+---------------+--------------+------------
+ 10 | Karthik Raman | Anaicut      | VERIFIED
+ 11 | Kavya Reddy   | Vellore Town | RESPONDING
+ 12 | Fathima Begum | (unassigned) | REPORTED
+ 13 | Joseph Antony | (unassigned) | REPORTED
+ 14 | Gopal Iyer    | Pernambut    | RESPONDING
+ 15 | Kavya Reddy   | Katpadi      | VERIFIED
+
+SELECT z.zone_name, count(*) AS incidents,
+       count(*) FILTER (WHERE i.status IN ('VERIFIED', 'RESPONDING'))
+         AS active
+FROM incidents i JOIN zones z ON z.id = i.zone_id
+GROUP BY z.zone_name HAVING count(*) >= 2
+ORDER BY incidents DESC, z.zone_name;
+  zone_name   | incidents | active 
+--------------+-----------+--------
+ Katpadi      |         3 |      1
+ Sathuvachari |         2 |      1
+ Vellore Town |         2 |      2
+
+SELECT r.unit_name, r.unit_type, r.availability_status
+FROM response_units r
+LEFT JOIN dispatches d
+       ON d.unit_id = r.id
+      AND d.dispatched_at >= DATE '2026-10-06'
+WHERE d.unit_id IS NULL
+ORDER BY r.unit_name;
+       unit_name        | unit_type | availability_status 
+------------------------+-----------+---------------------
+ Ambulance KPD-02       | MEDICAL   | AVAILABLE
+ Katpadi Fire Unit      | FIRE      | AVAILABLE
+ Katpadi Police Patrol  | POLICE    | AVAILABLE
+ Relief Unit Gudiyatham | RELIEF    | OFF_DUTY
+ Vellore North Police   | POLICE    | AVAILABLE
+
+SELECT resource_name, quantity_available AS available, reorder_level, fn_stock_status(id) AS stock_status
+FROM resources WHERE fn_stock_status(id) <> 'ADEQUATE' ORDER BY quantity_available;
+       resource_name        | available | reorder_level | stock_status 
+----------------------------+-----------+---------------+--------------
+ Inflatable rescue boats    |         0 |             2 | OUT_OF_STOCK
+ Portable generators        |         2 |             3 | LOW
+ Water purification tablets |        80 |           100 | LOW
+
+SELECT r.unit_name, r.unit_type, r.personnel_count
+FROM response_units r
+WHERE r.personnel_count >
+      (SELECT avg(x.personnel_count)
+       FROM response_units x
+       WHERE x.unit_type = r.unit_type)
+ORDER BY r.unit_type, r.unit_name;
+        unit_name        | unit_type | personnel_count 
+-------------------------+-----------+-----------------
+ Vellore Fire and Rescue | FIRE      |              12
+ Ambulance VLR-01        | MEDICAL   |               4
+ Vellore North Police    | POLICE    |              10
+ Relief Unit Ranipet     | RELIEF    |               7
+ SDRF Team Alpha         | RESCUE    |              18
+
+SELECT u.full_name, u.email
+FROM users u
+WHERE u.id IN
+      (SELECT d.dispatched_by FROM dispatches d
+       WHERE d.incident_id IN
+             (SELECT id FROM incidents
+              WHERE severity = 'CRITICAL'))
+ORDER BY u.full_name;
+     full_name      |                email                 
+--------------------+--------------------------------------
+ Priya Natarajan    | priya.natarajan@dmers.example.org
+ Rajesh Subramanian | rajesh.subramanian@dmers.example.org
+
+SELECT i.id, i.title, i.severity, z.zone_name FROM incidents i JOIN zones z ON z.id = i.zone_id
+WHERE i.status = 'VERIFIED' AND NOT EXISTS (SELECT 1 FROM dispatches d WHERE d.incident_id = i.id)
+ORDER BY i.id;
+ id |                     title                      | severity |  zone_name   
+----+------------------------------------------------+----------+--------------
+  9 | Waterlogging in Sathuvachari low-lying streets | MODERATE | Sathuvachari
+ 10 | Rising water level at Anaicut check dam        | HIGH     | Anaicut
+ 15 | Waterlogging under Katpadi railway underpass   | HIGH     | Katpadi
+
+SELECT r.unit_name, count(*) AS dispatches,
+       count(*) FILTER (WHERE d.dispatch_status = 'COMPLETED') AS completed,
+       round(sum(extract(epoch FROM d.cleared_at - d.arrived_at) / 3600)
+             FILTER (WHERE d.dispatch_status = 'COMPLETED'), 2) AS hours_on_scene
+FROM dispatches d JOIN response_units r ON r.id = d.unit_id
+GROUP BY r.unit_name ORDER BY dispatches DESC, hours_on_scene DESC NULLS LAST LIMIT 5;
+        unit_name        | dispatches | completed | hours_on_scene 
+-------------------------+------------+-----------+----------------
+ Gudiyatham Fire Unit    |          2 |         1 |           3.48
+ SDRF Team Alpha         |          2 |         1 |           1.93
+ Vellore Fire and Rescue |          2 |         1 |           1.88
+ Ambulance AMB-03        |          2 |         1 |           0.65
+ Ambulance VLR-01        |          2 |         0 |               
+
+SELECT z.zone_name, count(*) AS incidents_reached,
+       round(avg(fn_response_minutes(i.id)), 1) AS avg_minutes
+FROM incidents i JOIN zones z ON z.id = i.zone_id
+WHERE fn_response_minutes(i.id) IS NOT NULL
+GROUP BY z.zone_name
+ORDER BY avg_minutes;
+  zone_name   | incidents_reached | avg_minutes 
+--------------+-------------------+-------------
+ Katpadi      |                 2 |        16.0
+ Ambur        |                 1 |        21.0
+ Gudiyatham   |                 1 |        21.0
+ Vellore Town |                 2 |        31.5
+ Sathuvachari |                 1 |        32.0
+ Walajapet    |                 1 |        54.0
+ Pernambut    |                 1 |        58.0
+
+SELECT t.update_no AS no, to_char(t.logged_at, 'DD-Mon HH24:MI') AS logged_at,
+       coalesce(t.previous_status, '-') || ' > ' || t.new_status AS change, u.full_name AS logged_by, t.note
+FROM incident_updates t LEFT JOIN users u ON u.id = t.logged_by
+WHERE t.incident_id = 3 ORDER BY t.update_no;
+ no |  logged_at   |         change          |    logged_by    |             note              
+----+--------------+-------------------------+-----------------+-------------------------------
+  1 | 02-Oct 11:20 | - > REPORTED            | Gopal Iyer      | Incident reported
+  2 | 02-Oct 11:26 | REPORTED > VERIFIED     | Priya Natarajan | Status set to VERIFIED
+  3 | 02-Oct 11:28 | VERIFIED > RESPONDING   | Priya Natarajan | Status set to RESPONDING
+  4 | 02-Oct 12:05 | RESPONDING > RESPONDING | Priya Natarajan | Allocated 20 First-aid kits
+  5 | 02-Oct 13:30 | RESPONDING > RESPONDING | Priya Natarajan | Allocated 40 Tarpaulin sheets
+  6 | 02-Oct 16:10 | RESPONDING > RESOLVED   | Priya Natarajan | Status set to RESOLVED
+  7 | 03-Oct 10:00 | RESOLVED > CLOSED       | Priya Natarajan | Status set to CLOSED
+
+SELECT u.full_name, 'reporter' AS role
+FROM incidents i JOIN users u ON u.id = i.reported_by
+WHERE i.id = 7
+UNION
+SELECT u.full_name, 'dispatching coordinator'
+FROM dispatches d JOIN users u ON u.id = d.dispatched_by
+WHERE d.incident_id = 7
+UNION
+SELECT u.full_name, 'lead of a dispatched unit'
+FROM dispatches d
+JOIN response_units r ON r.id = d.unit_id
+JOIN users u ON u.id = r.lead_user_id
+WHERE d.incident_id = 7
+ORDER BY role, full_name;
+     full_name      |           role            
+--------------------+---------------------------
+ Priya Natarajan    | dispatching coordinator
+ Rajesh Subramanian | dispatching coordinator
+ Arun Prakash       | lead of a dispatched unit
+ Lakshmi Narayanan  | lead of a dispatched unit
+ Mohammed Irfan     | lead of a dispatched unit
+ Anitha Selvam      | reporter
+
+SELECT unit_type, unit_name, dispatches
+FROM (SELECT r.unit_type, r.unit_name,
+             count(d.unit_id) AS dispatches,
+             row_number() OVER (PARTITION BY r.unit_type
+               ORDER BY count(d.unit_id) DESC, r.unit_name) AS rn
+      FROM response_units r
+      LEFT JOIN dispatches d ON d.unit_id = r.id
+      GROUP BY r.unit_type, r.unit_name) ranked
+WHERE rn = 1
+ORDER BY unit_type;
+ unit_type |       unit_name        | dispatches 
+-----------+------------------------+------------
+ FIRE      | Gudiyatham Fire Unit   |          2
+ MEDICAL   | Ambulance AMB-03       |          2
+ POLICE    | Katpadi Police Patrol  |          1
+ RELIEF    | Relief Unit Gudiyatham |          1
+ RESCUE    | SDRF Team Alpha        |          2
+
+WITH units AS (SELECT incident_id,
+                      count(*) FILTER (WHERE dispatch_status = 'ON_SCENE') AS on_scene,
+                      count(*) FILTER (WHERE dispatch_status IN ('ASSIGNED', 'EN_ROUTE')) AS on_the_way
+               FROM dispatches GROUP BY incident_id),
+     relief AS (SELECT incident_id, count(*) AS relief_items FROM resource_allocations GROUP BY incident_id)
+SELECT i.id, i.severity, coalesce(u.on_scene, 0) AS on_scene, coalesce(u.on_the_way, 0) AS on_the_way,
+       coalesce(r.relief_items, 0) AS relief_items
+FROM incidents i LEFT JOIN units u ON u.incident_id = i.id LEFT JOIN relief r ON r.incident_id = i.id
+WHERE i.status IN ('VERIFIED', 'RESPONDING') ORDER BY i.id;
+ id | severity | on_scene | on_the_way | relief_items 
+----+----------+----------+------------+--------------
+  7 | CRITICAL |        3 |          0 |            6
+  9 | MODERATE |        0 |          0 |            2
+ 10 | HIGH     |        0 |          0 |            1
+ 11 | HIGH     |        1 |          0 |            0
+ 14 | HIGH     |        1 |          2 |            3
+ 15 | HIGH     |        0 |          0 |            0
+
+CREATE OR REPLACE VIEW v_zone_situation AS
+SELECT z.zone_name, z.risk_level,
+       fn_active_incidents(z.id) AS active_incidents,
+       (SELECT count(*) FROM response_units r
+        WHERE r.zone_id = z.id
+          AND r.availability_status = 'AVAILABLE')
+         AS units_available
+FROM zones z;
+CREATE VIEW
+SELECT * FROM v_zone_situation
+WHERE active_incidents > 0 OR risk_level = 'HIGH'
+ORDER BY active_incidents DESC, zone_name;
+  zone_name   | risk_level | active_incidents | units_available 
+--------------+------------+------------------+-----------------
+ Vellore Town | HIGH       |                2 |               1
+ Anaicut      | MEDIUM     |                1 |               0
+ Katpadi      | MEDIUM     |                1 |               3
+ Pernambut    | MEDIUM     |                1 |               0
+ Sathuvachari | HIGH       |                1 |               0
+ Gudiyatham   | HIGH       |                0 |               0
+
+== 06: functions, procedures, cursor and triggers (three calls and two edits are meant to fail)
+SET TIME ZONE 'Asia/Kolkata';
+SET
+SET client_min_messages = notice;
+SET
+SELECT fn_stock_status(11) AS boats, fn_stock_status(12) AS generators,
+       fn_active_incidents(1) AS active_in_vellore_town, fn_response_minutes(7) AS palar_response_min;
+    boats     | generators | active_in_vellore_town | palar_response_min 
+--------------+------------+------------------------+--------------------
+ OUT_OF_STOCK | LOW        |                      2 |               41.0
+
+CALL sp_dispatch_unit(9, 2, 3);
+06_plpgsql_demo.sql:15: NOTICE:  Unit 2 (Katpadi Fire Unit) dispatched to incident 9 by user 3
+CALL
+SELECT d.dispatch_status,
+       r.availability_status AS unit_now,
+       i.status AS incident_now
+FROM dispatches d
+JOIN response_units r ON r.id = d.unit_id
+JOIN incidents i ON i.id = d.incident_id
+WHERE d.incident_id = 9 AND d.unit_id = 2;
+ dispatch_status | unit_now | incident_now 
+-----------------+----------+--------------
+ ASSIGNED        | DEPLOYED | RESPONDING
+
+CALL sp_dispatch_unit(10, 9, 3);
+06_plpgsql_demo.sql:25: ERROR:  Unit 9 is DEPLOYED, not AVAILABLE
+CALL sp_dispatch_unit(12, 5, 3);
+06_plpgsql_demo.sql:26: ERROR:  Incident 12 is REPORTED; only VERIFIED or RESPONDING incidents receive units
+CALL sp_dispatch_unit(10, 5, 10);
+06_plpgsql_demo.sql:27: ERROR:  User 10 is not authorised to dispatch units
+CALL sp_close_incident(14, 3, 'Debris cleared; structure declared safe');
+06_plpgsql_demo.sql:30: NOTICE:  Unit 3 released (dispatch was EN_ROUTE)
+06_plpgsql_demo.sql:30: NOTICE:  Unit 6 released (dispatch was ASSIGNED)
+06_plpgsql_demo.sql:30: NOTICE:  Unit 10 released (dispatch was ON_SCENE)
+06_plpgsql_demo.sql:30: NOTICE:  Incident 14 closed; 3 unit(s) released
+CALL
+SELECT d.unit_id, r.unit_name, d.dispatch_status, r.availability_status
+FROM dispatches d JOIN response_units r ON r.id = d.unit_id
+WHERE d.incident_id = 14 ORDER BY d.unit_id;
+ unit_id |      unit_name       | dispatch_status | availability_status 
+---------+----------------------+-----------------+---------------------
+       3 | Gudiyatham Fire Unit | CANCELLED       | AVAILABLE
+       6 | Ambulance AMB-03     | CANCELLED       | AVAILABLE
+      10 | SDRF Team Bravo      | COMPLETED       | AVAILABLE
+
+SELECT update_no, previous_status, new_status, note, logged_by
+FROM incident_updates WHERE incident_id = 14 AND update_no >= 7 ORDER BY update_no;
+ update_no | previous_status | new_status |                  note                   | logged_by 
+-----------+-----------------+------------+-----------------------------------------+-----------
+         7 | RESPONDING      | RESOLVED   | Status set to RESOLVED                  |         3
+         8 | RESOLVED        | CLOSED     | Debris cleared; structure declared safe |         3
+
+SET dmers.actor_id = '2';
+SET
+SELECT quantity_available AS cans_in_stock FROM resources WHERE id = 3;
+ cans_in_stock 
+---------------
+           600
+
+INSERT INTO resource_allocations AS ra (incident_id, resource_id, quantity) VALUES (7, 3, 40)
+ON CONFLICT (incident_id, resource_id)
+DO UPDATE SET quantity = ra.quantity + EXCLUDED.quantity, allocated_at = now();
+INSERT 0 1
+SELECT ra.quantity AS allocated_to_7, r.quantity_available AS cans_in_stock, t.note
+FROM resource_allocations ra JOIN resources r ON r.id = ra.resource_id
+JOIN incident_updates t ON t.incident_id = ra.incident_id
+WHERE ra.incident_id = 7 AND ra.resource_id = 3 ORDER BY t.update_no DESC LIMIT 1;
+ allocated_to_7 | cans_in_stock |                  note                   
+----------------+---------------+-----------------------------------------
+            340 |           560 | Allocated 40 Drinking water cans (20 L)
+
+INSERT INTO resource_allocations (incident_id, resource_id, quantity) VALUES (10, 12, 5);
+06_plpgsql_demo.sql:47: ERROR:  Insufficient stock for resource 12: requested 5, available 2
+UPDATE incident_updates SET note = 'edited'
+WHERE incident_id = 3 AND update_no = 1;
+06_plpgsql_demo.sql:51: ERROR:  Timeline entries are append-only (incident 3, update 1)
+DELETE FROM incident_updates WHERE incident_id = 3;
+06_plpgsql_demo.sql:52: ERROR:  Timeline entries are append-only (incident 3, update 1)
+== 07: constraint tests (every statement is meant to fail and nothing is changed)
+SET TIME ZONE 'Asia/Kolkata';
+SET
+SET client_min_messages = notice;
+SET
+INSERT INTO users (full_name, email, password_hash)
+VALUES ('Test User', 'anitha.selvam@mail.example.com', 'x');
+07_constraint_tests.sql:13: ERROR:  duplicate key value violates unique constraint "uq_users_email"
+INSERT INTO users (full_name, account_type, email, password_hash)
+VALUES ('Guest User', 'GUEST', 'guest.user@mail.example.com', 'x');
+07_constraint_tests.sql:17: ERROR:  new row for relation "users" violates check constraint "ck_users_account_type"
+INSERT INTO users (full_name, email, password_hash) VALUES ('Test User', 'not-an-email', 'x');
+07_constraint_tests.sql:20: ERROR:  new row for relation "users" violates check constraint "ck_users_email_format"
+UPDATE incidents SET severity = 'EXTREME' WHERE id = 12;
+07_constraint_tests.sql:23: ERROR:  new row for relation "incidents" violates check constraint "ck_incidents_severity"
+UPDATE incidents SET status = 'VERIFIED' WHERE id = 12;
+07_constraint_tests.sql:26: ERROR:  new row for relation "incidents" violates check constraint "ck_incidents_zone_when_verified"
+INSERT INTO incidents (title, incident_type, location, reported_by) VALUES ('Test', 'FIRE', 'Katpadi', 999);
+07_constraint_tests.sql:29: ERROR:  insert or update on table "incidents" violates foreign key constraint "fk_incidents_reporter"
+INSERT INTO response_units (unit_name, unit_type, contact_phone, personnel_count, zone_id)
+VALUES ('Test Unit', 'FIRE', '9000010199', 0, 1);
+07_constraint_tests.sql:33: ERROR:  new row for relation "response_units" violates check constraint "ck_units_personnel"
+INSERT INTO response_units (unit_name, unit_type, contact_phone, personnel_count, zone_id)
+VALUES ('Test Unit', 'FIRE', '12345', 4, 1);
+07_constraint_tests.sql:37: ERROR:  new row for relation "response_units" violates check constraint "ck_units_phone"
+UPDATE resources SET quantity_available = -5 WHERE id = 1;
+07_constraint_tests.sql:40: ERROR:  new row for relation "resources" violates check constraint "ck_resources_quantity"
+INSERT INTO resource_allocations (incident_id, resource_id, quantity) VALUES (13, 1, 0);
+07_constraint_tests.sql:43: ERROR:  new row for relation "resource_allocations" violates check constraint "ck_allocations_quantity"
+INSERT INTO dispatches (incident_id, unit_id, dispatched_by, arrived_at)
+VALUES (10, 5, 3, now() - interval '1 hour');
+07_constraint_tests.sql:47: ERROR:  new row for relation "dispatches" violates check constraint "ck_dispatches_arrival"
+BEGIN;
+BEGIN
+INSERT INTO dispatches (incident_id, unit_id, dispatched_by) VALUES (10, 7, 3);
+INSERT 0 1
+INSERT INTO dispatches (incident_id, unit_id, dispatched_by) VALUES (15, 7, 3);
+07_constraint_tests.sql:52: ERROR:  duplicate key value violates unique constraint "uq_dispatches_one_active_per_unit"
+ROLLBACK;
+ROLLBACK
+DELETE FROM users WHERE id = 10;
+07_constraint_tests.sql:56: ERROR:  update or delete on table "users" violates foreign key constraint "fk_incidents_reporter" on table "incidents"
+DELETE FROM incidents WHERE id = 3;
+07_constraint_tests.sql:59: ERROR:  update or delete on table "incidents" violates foreign key constraint "fk_dispatches_incident" on table "dispatches"
