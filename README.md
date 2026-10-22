@@ -47,8 +47,12 @@ Sample application administrator: `admin@rescue.ai` / `Admin@123`. Review II cou
 - Incident triage workflow, hospital/team data views, audit history, and spreadsheet-safe CSV incident export
 - Separate production and hot-reload development Docker profiles with PostgreSQL health-gated startup
 
+## Real roads, risk and hospital beds
+
+Routes follow real Vellore streets (OpenStreetMap, bundled for offline use); road blocks and hazards close or penalise nearby roads; every figure shows its risk factors; the OS Laboratory models hospital beds with exact queueing theory; and the Data tab exports a detailed schema dictionary as CSV. See [Routing, risk, beds and exports](docs/ROUTING_AND_RISK.md).
+
 ## Layout
 
 `frontend/` React/Vite dashboard · `backend/` Flask API and SQLite store · `docker-compose.yml` PostgreSQL, API, and web services · `docs/` course documentation · `screenshots/` verification captures.
 
-See [Installation Guide](docs/INSTALLATION.md), [User Manual](docs/USER_MANUAL.md), [Architecture](docs/ARCHITECTURE.md), [Algorithms](docs/AI_ALGORITHMS.md), and [Project Report](docs/PROJECT_REPORT.md).
+See [Routing, risk, beds and exports](docs/ROUTING_AND_RISK.md), [Installation Guide](docs/INSTALLATION.md), [User Manual](docs/USER_MANUAL.md), [Architecture](docs/ARCHITECTURE.md), [Algorithms](docs/AI_ALGORITHMS.md), and [Project Report](docs/PROJECT_REPORT.md).

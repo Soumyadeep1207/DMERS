@@ -1,0 +1,689 @@
+{
+ "source": "OpenStreetMap contributors via Overpass API",
+ "license": "ODbL 1.0",
+ "attribution": "(c) OpenStreetMap contributors",
+ "built": "2026-10-22",
+ "note": "Bed counts are not in OpenStreetMap; enter live capacity in DMERS.",
+ "facilities": [
+  {
+   "id": "osm-node-4693434964",
+   "type": "fire_station",
+   "name": "Vellore Fire station",
+   "lat": 12.914123,
+   "lon": 79.131245,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-6915394481",
+   "type": "hospital",
+   "name": "A.S.A Hospital",
+   "lat": 12.937004,
+   "lon": 79.162903,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122322",
+   "type": "hospital",
+   "name": "Annamalai Hospital",
+   "lat": 12.906071,
+   "lon": 79.137064,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7257289043",
+   "type": "hospital",
+   "name": "Arun Hospital",
+   "lat": 12.903031,
+   "lon": 79.133471,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122323",
+   "type": "hospital",
+   "name": "BPR Hospital",
+   "lat": 12.916289,
+   "lon": 79.136317,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7257421542",
+   "type": "hospital",
+   "name": "Baba Hospital, Sathuvachari",
+   "lat": 12.93425,
+   "lon": 79.158739,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122257",
+   "type": "hospital",
+   "name": "Best Hospital",
+   "lat": 12.877331,
+   "lon": 79.106616,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-way-120272987",
+   "type": "hospital",
+   "name": "Christian Medical College Hospital",
+   "lat": 12.92494,
+   "lon": 79.135875,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": "0416-2281000;+91 9498760000"
+  },
+  {
+   "id": "osm-node-7825122250",
+   "type": "hospital",
+   "name": "Church Hospital",
+   "lat": 12.908248,
+   "lon": 79.125195,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122271",
+   "type": "hospital",
+   "name": "Cure Multispeciality Hospital",
+   "lat": 12.909147,
+   "lon": 79.133344,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122295",
+   "type": "hospital",
+   "name": "DSF Hospital",
+   "lat": 12.936694,
+   "lon": 79.162654,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122286",
+   "type": "hospital",
+   "name": "Dhinesh Hospitals",
+   "lat": 12.908624,
+   "lon": 79.133113,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-6936709044",
+   "type": "hospital",
+   "name": "Dr Sivakumar Multi Speciality Hospital, Vellore",
+   "lat": 12.934306,
+   "lon": 79.152562,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122277",
+   "type": "hospital",
+   "name": "Dr. Pari's Hospital",
+   "lat": 12.903011,
+   "lon": 79.132484,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7257289127",
+   "type": "hospital",
+   "name": "Dr. Santhakumari Hospital",
+   "lat": 12.908625,
+   "lon": 79.125581,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122262",
+   "type": "hospital",
+   "name": "Dr. Venkateswara Rao Hospital",
+   "lat": 12.916341,
+   "lon": 79.134222,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122282",
+   "type": "hospital",
+   "name": "Fathima Hospital",
+   "lat": 12.917006,
+   "lon": 79.138924,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122255",
+   "type": "hospital",
+   "name": "G P Hospital",
+   "lat": 12.915428,
+   "lon": 79.135204,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122290",
+   "type": "hospital",
+   "name": "Gita Mathai Hospital",
+   "lat": 12.915923,
+   "lon": 79.140022,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7257289049",
+   "type": "hospital",
+   "name": "Government Pentland Hospital",
+   "lat": 12.915663,
+   "lon": 79.13465,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-14067828491",
+   "type": "hospital",
+   "name": "Ida Sophia Scudder Urban Health Centre",
+   "lat": 12.912462,
+   "lon": 79.133432,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122311",
+   "type": "hospital",
+   "name": "JJ Ravi Hospital",
+   "lat": 12.89233,
+   "lon": 79.135417,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122298",
+   "type": "hospital",
+   "name": "Jansi Hospital",
+   "lat": 12.921814,
+   "lon": 79.112727,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122292",
+   "type": "hospital",
+   "name": "Jayanthi Hospital",
+   "lat": 12.936246,
+   "lon": 79.167112,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122313",
+   "type": "hospital",
+   "name": "Jothi Hospital",
+   "lat": 12.903117,
+   "lon": 79.135997,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122265",
+   "type": "hospital",
+   "name": "K K R Hospital",
+   "lat": 12.904517,
+   "lon": 79.135956,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-6936359962",
+   "type": "hospital",
+   "name": "Kumaran Hospital, Vellore",
+   "lat": 12.945948,
+   "lon": 79.137387,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122256",
+   "type": "hospital",
+   "name": "Kurinji Hospital",
+   "lat": 12.956508,
+   "lon": 79.14148,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122305",
+   "type": "hospital",
+   "name": "Lakshmi Hospital",
+   "lat": 12.900256,
+   "lon": 79.127158,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7257289055",
+   "type": "hospital",
+   "name": "Mummy Hospital, Vellore",
+   "lat": 12.91051,
+   "lon": 79.131432,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-6932966222",
+   "type": "hospital",
+   "name": "Nalam Medical Center and Hospital",
+   "lat": 12.934686,
+   "lon": 79.153697,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122317",
+   "type": "hospital",
+   "name": "Naruvi Hospitals",
+   "lat": 12.934139,
+   "lon": 79.141332,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122319",
+   "type": "hospital",
+   "name": "Premji Neuro Hospital",
+   "lat": 12.876936,
+   "lon": 79.118794,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122240",
+   "type": "hospital",
+   "name": "Ramachandra Hospital",
+   "lat": 12.893674,
+   "lon": 79.135719,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122246",
+   "type": "hospital",
+   "name": "S.K. Nambi Hospital",
+   "lat": 12.905718,
+   "lon": 79.135299,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7257421598",
+   "type": "hospital",
+   "name": "Sakthi Amma Hospital, Vellore",
+   "lat": 12.936069,
+   "lon": 79.164314,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-6936770777",
+   "type": "hospital",
+   "name": "Sandhya Hospital",
+   "lat": 12.938297,
+   "lon": 79.168478,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7181669848",
+   "type": "hospital",
+   "name": "Sankari Hospital",
+   "lat": 12.915353,
+   "lon": 79.133501,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7257421568",
+   "type": "hospital",
+   "name": "Sarada Multispeciality Hospital",
+   "lat": 12.93239,
+   "lon": 79.156815,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122251",
+   "type": "hospital",
+   "name": "Shivam Hospital",
+   "lat": 12.952229,
+   "lon": 79.144835,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122270",
+   "type": "hospital",
+   "name": "Storke Hospital",
+   "lat": 12.889838,
+   "lon": 79.134424,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-1754861232",
+   "type": "hospital",
+   "name": "Unnamed emergency facility",
+   "lat": 12.879382,
+   "lon": 79.134068,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7200398285",
+   "type": "hospital",
+   "name": "Unnamed hospital",
+   "lat": 12.913795,
+   "lon": 79.134943,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": "9003070065"
+  },
+  {
+   "id": "osm-node-7825122287",
+   "type": "hospital",
+   "name": "VB Hospital",
+   "lat": 12.935049,
+   "lon": 79.156067,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7257289036",
+   "type": "hospital",
+   "name": "Varshini Hospital, Vellore",
+   "lat": 12.905998,
+   "lon": 79.135522,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122249",
+   "type": "hospital",
+   "name": "Vellore Hospital",
+   "lat": 12.901681,
+   "lon": 79.13163,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122263",
+   "type": "hospital",
+   "name": "Akshaya General and Dental Hospital",
+   "lat": 12.957793,
+   "lon": 79.136876,
+   "emergency_capable": false,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122306",
+   "type": "hospital",
+   "name": "Aruna Eye Hospital",
+   "lat": 12.911251,
+   "lon": 79.131733,
+   "emergency_capable": false,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122267",
+   "type": "hospital",
+   "name": "C.M Dental Clinic and Hospital",
+   "lat": 12.921855,
+   "lon": 79.112581,
+   "emergency_capable": false,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122294",
+   "type": "hospital",
+   "name": "Christian Medical College Schell Eye Hospital",
+   "lat": 12.913067,
+   "lon": 79.133448,
+   "emergency_capable": false,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-6937498370",
+   "type": "hospital",
+   "name": "Dr. Agarwal`S Eye Hospital Ltd",
+   "lat": 12.910697,
+   "lon": 79.131622,
+   "emergency_capable": false,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122238",
+   "type": "hospital",
+   "name": "Herbocare Hospital",
+   "lat": 12.959786,
+   "lon": 79.138644,
+   "emergency_capable": false,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-10735185863",
+   "type": "hospital",
+   "name": "Nathan dental clinic",
+   "lat": 12.954696,
+   "lon": 79.1352,
+   "emergency_capable": false,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122288",
+   "type": "hospital",
+   "name": "Nirmal Eye Hospital",
+   "lat": 12.91488,
+   "lon": 79.134335,
+   "emergency_capable": false,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122304",
+   "type": "hospital",
+   "name": "Satish Eye Hospital",
+   "lat": 12.910634,
+   "lon": 79.133284,
+   "emergency_capable": false,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122268",
+   "type": "hospital",
+   "name": "Sterling Diabetes Hospital",
+   "lat": 12.957843,
+   "lon": 79.143209,
+   "emergency_capable": false,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-7825122245",
+   "type": "hospital",
+   "name": "Swasam Naturecure and Yoga Hospital",
+   "lat": 12.95662,
+   "lon": 79.141875,
+   "emergency_capable": false,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-6933824568",
+   "type": "hospital",
+   "name": "Vasan Eye Care Hospital, Vellore",
+   "lat": 12.908833,
+   "lon": 79.131635,
+   "emergency_capable": false,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-6932166589",
+   "type": "hospital",
+   "name": "Vellore Eye and Dental Hospital",
+   "lat": 12.931056,
+   "lon": 79.155401,
+   "emergency_capable": false,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-way-1337331154",
+   "type": "police",
+   "name": "BS-1 Vellore South Police Station",
+   "lat": 12.916405,
+   "lon": 79.132812,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-1754861237",
+   "type": "police",
+   "name": "Bagayam Police Station",
+   "lat": 12.875751,
+   "lon": 79.133696,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-way-1337331156",
+   "type": "police",
+   "name": "Ideal North Police Station",
+   "lat": 12.923314,
+   "lon": 79.131528,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-10833430957",
+   "type": "police",
+   "name": "Unnamed police station",
+   "lat": 12.940732,
+   "lon": 79.173311,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-4693434975",
+   "type": "police",
+   "name": "Viruthampattu police station",
+   "lat": 12.953427,
+   "lon": 79.14142,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-10980490843",
+   "type": "shelter",
+   "name": "Unnamed shelter",
+   "lat": 12.9589,
+   "lon": 79.137345,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-node-12118021253",
+   "type": "shelter",
+   "name": "Unnamed shelter",
+   "lat": 12.9388,
+   "lon": 79.16694,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-way-1164789986",
+   "type": "shelter",
+   "name": "Unnamed shelter",
+   "lat": 12.929707,
+   "lon": 79.133858,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  },
+  {
+   "id": "osm-way-1337331170",
+   "type": "shelter",
+   "name": "Unnamed shelter",
+   "lat": 12.919925,
+   "lon": 79.131973,
+   "emergency_capable": true,
+   "beds": null,
+   "phone": null
+  }
+ ]
+}

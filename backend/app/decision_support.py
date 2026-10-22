@@ -6,6 +6,7 @@ by the application database. It never assigns a team or changes incident state.
 """
 from __future__ import annotations
 
+from . import risk_model
 
 SEVERITY_POINTS = {"critical": 45, "high": 34, "moderate": 22, "low": 10}
 STATUS_POINTS = {"reported": 15, "verified": 8, "dispatched": 0, "resolved": 0, "closed": 0}
@@ -72,20 +73,39 @@ def build_advisory(incident: dict, teams: list[dict], hospitals: list[dict]) -> 
     ranked_hospitals = []
     for hospital in hospitals:
         beds = int(hospital.get("available_beds") or 0)
+        total = int(hospital.get("total_beds") or 0)
+        occupancy = round(100 * (1 - beds / total), 1) if total else None
         hospital_status = str(hospital.get("status") or "unknown").lower()
         accepting = hospital_status in {"accepting", "limited"} and beds > 0
         ranked_hospitals.append({
             "id": hospital.get("id"), "name": hospital.get("name"), "status": hospital_status,
-            "available_beds": beds, "location": hospital.get("location"),
+            "available_beds": beds, "total_beds": total or None, "occupancy_pct": occupancy,
+            "strain": None if occupancy is None else "CRITICAL" if occupancy >= 90 else "BUSY" if occupancy >= 75 else "NORMAL",
+            "location": hospital.get("location"),
             "recommended": accepting,
             "reason": f"{beds} beds available; status {hospital_status}" if accepting else f"Not recommended: {beds} beds available; status {hospital_status}",
         })
     ranked_hospitals.sort(key=lambda item: (not item["recommended"], -item["available_beds"], item["name"] or ""))
 
+    best_free = max((item["available_beds"] for item in ranked_hospitals if item["recommended"]), default=0)
+    F = risk_model.factor
+    risk = risk_model.compose([
+        F("Recorded severity", severity.title(), "", {"critical": 1.0, "high": 0.75, "moderate": 0.5, "low": 0.25}.get(severity, 0.25), 0.45,
+          "critical = 1.0, high = 0.75, moderate = 0.5, low = 0.25."),
+        F("Awaiting action", status.replace("_", " ").title(), "", {"reported": 1.0, "verified": 0.55, "dispatched": 0.2}.get(status, 0.0), 0.15,
+          "Unverified reports carry the most uncertainty; resolved or closed carry none."),
+        F("Location confidence", "GPS on record" if incident.get("latitude") is not None else "Landmark only", "", 0.0 if incident.get("latitude") is not None and incident.get("longitude") is not None else 1.0, 0.10,
+          "Missing coordinates delay routing and raise the chance of a wrong destination."),
+        F("Receiving-capacity strain", best_free, "free beds at best hospital", 1 - min(1.0, best_free / 25), 0.30,
+          "No accepting hospital scores 1.0; 25 or more free beds at the best accepting hospital scores 0."),
+    ], "score = 100 x sum(weight x normalised factor); bands: <20 LOW, <40 MODERATE, <65 HIGH, else SEVERE",
+        ["Rules-based and transparent; not a trained model and not a prediction of harm.", "Bed counts are only as current as the last capacity update."])
+
     return {
         "incident": {key: incident.get(key) for key in ("id", "reference", "disaster_type", "severity", "status", "description", "location", "latitude", "longitude")},
         "priority": {"score": score, "label": priority, "explanation": f"{severity_points} severity points + {status_points} status points, capped at 100."},
         "risk_factors": risk_factors,
+        "risk": risk,
         "team_candidates": ranked_teams,
         "hospital_candidates": ranked_hospitals,
         "capability_basis": list(terms),

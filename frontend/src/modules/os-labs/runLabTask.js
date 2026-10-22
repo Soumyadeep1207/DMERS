@@ -5,6 +5,7 @@ import { allocateContiguous, compactMemory, translatePagedAddress, internalFragm
 import { replacePages, beladyDemonstration, thrashingCurve } from './virtualMemory.js';
 import { scheduleDisk } from './diskScheduling.js';
 import { allocateFiles } from './fileSystem.js';
+import { analyseHospital } from './hospitalBeds.js';
 
 export function runLabTask(kind, input = {}) {
   switch (kind) {
@@ -23,6 +24,7 @@ export function runLabTask(kind, input = {}) {
     case 'memory': { const allocation = allocateContiguous([100, 500, 200, 300], [{ id: 'Triage cache', size: 120 }, { id: 'Map tiles', size: 210 }, { id: 'Incident archive', size: 90 }], input.allocation || 'BEST_FIT'); return { allocation, compaction: compactMemory(allocation.holes), paging: translatePagedAddress(Number(input.address) || 14, 4, [3,7,2,5]), fragmentation: internalFragmentation(14,4), segmentationValid: segmentAddress([{ base: 1000, limit: 100 }], 0, 24), segmentationTrap: segmentAddress([{ base: 1000, limit: 100 }], 0, 100), tlb: effectiveAccessTime(0.8, 100, 10) }; }
     case 'virtual': { const references = String(input.references || '1,2,3,4,1,2,5,1,2,3,4,5').split(',').map(Number).filter(Number.isFinite); const frames = Number(input.frames) || 3; return { results: ['FIFO','LRU','OPTIMAL','CLOCK','LFU'].map(algorithm => replacePages(references, frames, algorithm)), belady: beladyDemonstration(), thrashing: thrashingCurve(references, Math.max(1, Number(input.maxFrames) || 8), 'LRU'), references }; }
     case 'disk': { const requests = String(input.requests || '98,183,37,122,14,124,65,67').split(',').map(Number).filter(Number.isFinite); return { results: ['FCFS','SSTF','SCAN','C-SCAN','LOOK','C-LOOK'].map(algorithm => scheduleDisk(requests, Number(input.head ?? 53), algorithm, input.direction || 'right')), files: ['CONTIGUOUS','LINKED','INDEXED'].map(scheme => allocateFiles([{ name: 'incident-archive', blocks: 5 }, { name: 'offline-map-cache', blocks: 7 }], 24, scheme)) }; }
+    case 'beds': return analyseHospital(input);
     default: throw new RangeError(`Unknown OS laboratory module: ${kind}`);
   }
 }

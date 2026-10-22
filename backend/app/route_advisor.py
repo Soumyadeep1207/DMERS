@@ -1,6 +1,7 @@
 """Multi-factor response route planning on a small weighted road grid."""
 from __future__ import annotations
 
+from . import risk_model
 from .search import search
 
 MODE_WEIGHTS = {
@@ -46,12 +47,20 @@ def _plan_all_targets(grid: list[list[int]], start: tuple[int, int], targets: li
     poor = sum(1 for row, col in path[1:] if grid[row][col] == 2)
     hazard = sum(1 for row, col in path[1:] if grid[row][col] == 3)
     blocked = sum(1 for row, col in path if grid[row][col] == -1)
+    steps = max(0, len(path) - 1)
+    F = risk_model.factor
+    risk = risk_model.compose([
+        F("Hazard cells on route", hazard, "cells", (hazard / steps) / 0.2 if steps else 0, 0.45, "Share of route cells in hazard areas; 20% of the route saturates."),
+        F("Poor-road cells on route", poor, "cells", (poor / steps) / 0.5 if steps else 0, 0.20, "Share of route cells on poor roads; 50% saturates."),
+        F("Targets not covered", len(targets) - len(order), "targets", (len(targets) - len(order)) / max(1, len(targets)), 0.25, "Targets the planner could not reach on passable cells."),
+        F("Route length", steps, "steps", steps / 40.0, 0.10, "Longer tours mean longer exposure; 40 grid steps saturates."),
+    ], "score = 100 x sum(weight x normalised factor)", ["Grid cells are a training abstraction, not metres; relative costs only."])
     return {
         "mode": mode, "path": path, "target_order": order, "legs": legs,
         "covered_targets": len(order), "total_targets": len(targets),
         "unreachable_targets": unreachable, "steps": max(0, len(path) - 1),
         "relative_cost": cost, "poor_road_cells": poor, "hazard_cells": hazard,
-        "blocked_cells_on_path": blocked,
+        "blocked_cells_on_path": blocked, "risk": risk,
     }
 
 

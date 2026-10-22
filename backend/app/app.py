@@ -1,14 +1,18 @@
 from __future__ import annotations
 import os, random, math
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 import jwt
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 from werkzeug.security import check_password_hash, generate_password_hash
 from .database import connection, init_db, save_simulation, simulations, database_health, review2_connection, review2_database_health, is_integrity_error, using_postgres
 from .search import search
 from .decision_support import build_advisory
 from .route_advisor import plan_response_route
+from . import road_network, schema_export
+
+TOKEN_LIFETIME = timedelta(hours=int(os.getenv("DMERS_TOKEN_HOURS", "8")))
 
 def create_app() -> Flask:
     app = Flask(__name__); CORS(app)
@@ -27,11 +31,12 @@ def create_app() -> Flask:
         def wrapped(*args, **kwargs):
             token = request.headers.get("Authorization", "").removeprefix("Bearer ")
             try: request.user = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])
+            except jwt.ExpiredSignatureError: return jsonify(error="Your session has expired. Sign in again."), 401
             except jwt.PyJWTError: return jsonify(error="Authentication required"), 401
             return fn(*args, **kwargs)
         return wrapped
     def issue(user: dict) -> str:
-        claims = {"id": user["id"], "email": user["email"], "role": user["role"]}
+        claims = {"id": user["id"], "email": user["email"], "role": user["role"], "exp": datetime.now(timezone.utc) + TOKEN_LIFETIME}
         for key in ("portal", "institution", "hospital_id"):
             if user.get(key) is not None: claims[key] = user[key]
         return jwt.encode(claims, app.config["SECRET_KEY"], algorithm="HS256")
@@ -173,23 +178,64 @@ def create_app() -> Flask:
         if condition == "poor":
             for r,c in free[victims:]: grid[r][c]=random.choice([1,1,2,3])
         return jsonify(grid=grid, team=[0,0], hospital=[size-1,size-1], victims=[list(v) for v in selected], disasterType=data.get("disasterType", "flood"), obstacles=[list(x) for x in blocked])
+    def routing_options(data: dict) -> tuple[str, str, str]:
+        return (str(data.get("algorithm", "astar")).lower(), str(data.get("mode", "fastest")).lower(), str(data.get("weather", "clear")).lower())
+
     @app.post("/api/map/route")
     def map_route():
-        """Return an offline straight-line route estimate between supplied stops."""
-        data = request.get_json() or {}
+        """Route through stops on the real OpenStreetMap road graph, honouring closures and hazard risk."""
+        data = request.get_json(silent=True) or {}
         try:
             stops = data.get("stops") or [data["start"], data["end"]]
-            if len(stops) < 2 or not all(isinstance(point, list) and len(point) == 2 for point in stops):
-                raise ValueError("Provide at least two stops as [latitude, longitude]")
-            points = [[float(point[0]), float(point[1])] for point in stops]
-            def meters(start, end):
-                latitude = math.radians((start[0] + end[0]) / 2)
-                return math.hypot((start[0] - end[0]) * 111_320, (start[1] - end[1]) * 111_320 * math.cos(latitude))
-            total = sum(meters(points[index], points[index + 1]) for index in range(len(points) - 1))
-            # 30 km/h is a conservative planning estimate only, not live traffic data.
-            return jsonify(points=points, stops=points, distanceMeters=round(total, 1), durationSeconds=round(total / 8.33, 1), offline=True)
+            if not road_network.graph_available():
+                if len(stops) < 2 or not all(isinstance(point, list) and len(point) == 2 for point in stops):
+                    raise ValueError("Provide at least two stops as [latitude, longitude]")
+                points = [[float(point[0]), float(point[1])] for point in stops]
+                total = sum(road_network.haversine_m(tuple(points[i]), tuple(points[i + 1])) for i in range(len(points) - 1))
+                return jsonify(points=points, stops=points, distanceMeters=round(total, 1), durationSeconds=round(total / 8.33, 1), source="straight-line", offline=True)
+            algorithm, mode, weather = routing_options(data)
+            return jsonify(road_network.route_stops(stops, data.get("hazards"), algorithm, mode, weather))
         except (KeyError, TypeError, ValueError) as error:
-            return jsonify(error=str(error)), 400
+            return jsonify(error=str(error) or "Provide stops as [latitude, longitude]"), 400
+
+    @app.post("/api/map/compare-algorithms")
+    def map_compare_algorithms():
+        """Run BFS, DFS, UCS, Greedy and A* on the same real road query and report honest metrics."""
+        data = request.get_json(silent=True) or {}
+        try:
+            _, mode, weather = routing_options(data)
+            return jsonify(road_network.compare_algorithms(data["start"], data["goal"], data.get("hazards"), mode, weather))
+        except (KeyError, TypeError, ValueError) as error:
+            return jsonify(error=str(error) or "Provide start and goal as [latitude, longitude]"), 400
+
+    @app.post("/api/map/mission-plan")
+    def map_mission_plan():
+        """Order victims, pick receiving hospitals by routed cost, and draw the real-road tour."""
+        data = request.get_json(silent=True) or {}
+        try:
+            algorithm, mode, weather = routing_options({"mode": "balanced", **data})
+            return jsonify(road_network.plan_missions(data["team"], data["victims"], data["hospitals"], data.get("hazards"), algorithm, mode, weather))
+        except (KeyError, TypeError, ValueError) as error:
+            return jsonify(error=str(error) or "Provide team, victims and hospitals"), 400
+
+    @app.get("/api/map/coverage")
+    def map_coverage():
+        if not road_network.graph_available():
+            return jsonify(available=False)
+        g = road_network.graph()
+        return jsonify(available=True, bbox=g.meta["bbox"], nodes=len(g.lat), road_segments=g.edge_count // 2, attribution=g.meta["attribution"],
+                       built=g.meta["built"], hazard_types={k: v["label"] for k, v in road_network.HAZARD_PROFILES.items()},
+                       weather={k: v[2] for k, v in road_network.WEATHER.items()}, algorithms=road_network.ALGORITHM_NOTES)
+
+    @app.get("/api/map/facilities")
+    def map_facilities():
+        """Real hospitals, fire stations, police stations and shelters bundled from OpenStreetMap."""
+        path = road_network.DATA_PATH.with_name("vellore_facilities.json")
+        if not path.exists():
+            return jsonify(facilities=[], attribution=None)
+        import json
+        with path.open(encoding="utf-8") as handle:
+            return jsonify(json.load(handle))
     @app.get("/api/map/simulations")
     @token_required
     def saved(): return jsonify(simulations=simulations())
@@ -253,6 +299,61 @@ def create_app() -> Flask:
                 columns = [row["column_name"] if using_postgres() else row[1] for row in metadata]
                 tables.append({"name": name, "columns": columns, "count": db.execute(f"SELECT COUNT(*) FROM {name}").fetchone()[0]})
         return jsonify(tables=tables)
+
+    def engine_name() -> str:
+        return "PostgreSQL" if using_postgres() else "SQLite (offline)"
+
+    def csv_response(body: str, name: str, subject: str):
+        audit(request.user["id"], "DATA_EXPORTED", subject, f"{name} downloaded")
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
+        return Response(body, mimetype="text/csv", headers={"Content-Disposition": f'attachment; filename="{name}-{stamp}.csv"', "Cache-Control": "no-store"})
+
+    @app.get("/api/data/schema")
+    @token_required
+    @role_required("admin", "official")
+    def data_schema():
+        """Live data dictionary, relationships and constraints for on-screen review."""
+        with connection() as db:
+            return jsonify(engine=engine_name(), dictionary=schema_export.dictionary(db), relationships=schema_export.relationships(db), constraints=schema_export.constraints_report(db))
+
+    @app.get("/api/data/schema.csv")
+    @token_required
+    @role_required("admin", "official")
+    def data_schema_csv():
+        with connection() as db: body = schema_export.to_csv(schema_export.dictionary(db))
+        return csv_response(body, "dmers-schema-dictionary", "schema dictionary")
+
+    @app.get("/api/data/relationships.csv")
+    @token_required
+    @role_required("admin", "official")
+    def data_relationships_csv():
+        with connection() as db: body = schema_export.to_csv(schema_export.relationships(db))
+        return csv_response(body, "dmers-relationships", "relationships")
+
+    @app.get("/api/data/constraints.csv")
+    @token_required
+    @role_required("admin", "official")
+    def data_constraints_csv():
+        with connection() as db: body = schema_export.to_csv(schema_export.constraints_report(db))
+        return csv_response(body, "dmers-constraints", "constraints")
+
+    @app.get("/api/data/export.csv")
+    @token_required
+    @role_required("admin", "official")
+    def data_table_csv():
+        table = request.args.get("table", "")
+        if table not in schema_export.TABLES: return jsonify(error="Choose one of: " + ", ".join(schema_export.TABLES)), 400
+        with connection() as db: body = schema_export.to_csv(schema_export.table_rows(db, table))
+        return csv_response(body, f"dmers-{table}", f"table {table}")
+
+    @app.get("/api/data/bundle.zip")
+    @token_required
+    @role_required("admin", "official")
+    def data_bundle():
+        with connection() as db: payload = schema_export.bundle(db, engine_name())
+        audit(request.user["id"], "DATA_EXPORTED", "full bundle", "ZIP with schema dictionary, relationships, constraints and table data")
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
+        return Response(payload, mimetype="application/zip", headers={"Content-Disposition": f'attachment; filename="dmers-database-export-{stamp}.zip"', "Cache-Control": "no-store"})
 
     @app.get("/api/review2/overview")
     @token_required
@@ -364,7 +465,7 @@ def create_app() -> Flask:
                 GROUP BY t.id,t.name,t.capability,t.availability
             """)]
             hospitals = [dict(row) for row in db.execute("""
-                SELECT h.id,h.name,h.available_beds,h.status,l.label AS location
+                SELECT h.id,h.name,h.total_beds,h.available_beds,h.status,l.label AS location
                 FROM hospitals h LEFT JOIN locations l ON l.id=h.location_id
             """)]
         return jsonify(build_advisory(dict(incident_row), teams, hospitals))
