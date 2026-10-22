@@ -21,26 +21,41 @@ every user operation is one database transaction, the database enforces the rule
 
 ## 3. Functional requirements
 
-The requirement identifiers used by the Review II SQL, with the meaning each carries in the code, are below. The Review I report remains the authoritative statement of all of FR-01 to FR-14;
-the wording of FR-01, FR-02, FR-08, FR-09 and FR-14 is **not restated in the repository's text sources** and must be copied from that report before submission.
+Quoted from Review I, Table 7 (the actor is in brackets). The last column shows how Review III exercises each requirement.
 
-| ID | What the code ties to it | Where in Review III |
+| ID | Requirement (Review I) | In Review III |
 |---|---|---|
-| FR-03 | A timeline of every status change (BR-08, append-only) | trigger `trg_incidents_timeline`, report Incident timeline |
-| FR-04 | List and filter incidents | Response Ops list, report Active incidents |
-| FR-05 | A verified incident must have a zone | CHECK `ck_incidents_zone_when_verified`, T3 |
-| FR-06 | Response units with a type, a zone and an optional lead | `response_units`, T5 |
-| FR-07 | Dispatch units; one active dispatch per unit (BR-05) | `sp_dispatch_unit`, `trg_dispatches_guard`, T4 |
-| FR-10 | Allocate relief; stock moves and cannot go negative (BR-07) | `trg_allocations_stock`, T6, T9 |
-| FR-11 | Close an incident and release its units | `sp_close_incident` with a cursor, T7 |
-| FR-12 | Accountability: who reported, dispatched and led | report Accountability, Timeline |
-| FR-13 | Situation and management reports | nine reports on the Reports page |
+| FR-01 | Register an account with name, account type, e-mail and password; reject a duplicate e-mail (Citizen, Administrator) | T1, existing endpoint with a `db_trace`; UNIQUE e-mail, step 2 of the log |
+| FR-02 | Sign in with e-mail and password, checked against the stored hash (all users) | T1, existing endpoint; the hash is never returned |
+| FR-03 | Report an incident with title, description, type and location; status starts as REPORTED and the first timeline entry is created automatically (Citizen) | T2; trigger `trg_incidents_timeline` writes entry 1 |
+| FR-04 | List and filter incidents by status, severity, type and zone (Coordinator) | Response Ops list (status filter), report Active incidents. Filtering by severity, type and zone is not built into the list |
+| FR-05 | Verify or reject a report; on verification assign its severity and zone (Coordinator) | T3; CHECK `ck_incidents_zone_when_verified` |
+| FR-06 | Maintain zones and response units, including each unit's base zone and lead account (Administrator) | **Not built in Review III.** Zones and units are created by the seed and read by the screens; there is no create or edit screen |
+| FR-07 | Dispatch an available unit to a verified incident and record the authorising coordinator; the unit becomes DEPLOYED and the incident RESPONDING (Coordinator) | T4; `sp_dispatch_unit`, `trg_dispatches_guard` |
+| FR-08 | Record dispatch progress (en route, on scene, completed) with timestamps (Unit lead) | T5; `sp_update_dispatch`, only the unit's lead |
+| FR-09 | Maintain the relief catalogue and restock items (Administrator) | T8 restock is built. **Adding or renaming catalogue items is not** |
+| FR-10 | Allocate relief stock to an incident only when enough is available, and reduce the stock by the allocated quantity (Coordinator) | T6, T9; `trg_allocations_stock` |
+| FR-11 | Resolve and close an incident: complete its open dispatches and return those units to AVAILABLE (Coordinator) | T7; `sp_close_incident` with its cursor |
+| FR-12 | Show the timeline of an incident: each status change with its time and the account responsible (Coordinator; citizen for own reports) | Incident detail timeline, report Incident timeline, report Accountability |
+| FR-13 | Produce situation reports: zone-wise incident counts, unit utilisation, low-stock items and average response time (Coordinator, Administrator) | Reports page, nine reports |
+| FR-14 | Report database availability through the backend health check (Administrator) | `/health`, extended with migration level, row counts and object checks |
+
+Review I's business rules BR-01 to BR-10 (Table 8) are enforced as planned there: BR-05, BR-07, BR-08 and BR-10 by the Review II procedures, triggers and functions; BR-09 (history cannot be deleted) by `ON DELETE RESTRICT`, shown in step 27 of the log.
 
 ## 4. ER diagram
 
-The Review I entity-relationship diagram is the design this database implements; it is not redrawn here. Its relational form is in `docs/review2/DMERS_DBMS_Review2.pdf`. In short:
-entities USER, ZONE, INCIDENT, RESPONSE_UNIT, RESOURCE; the weak entity INCIDENT_UPDATE (owned by INCIDENT); the ternary relationship DISPATCHED_TO (incident, unit, authorising user);
-the M:N relationship ALLOCATED (incident, resource); BASED_IN (unit to zone, total); LEADS (user to unit, optional 1:1).
+The ER schema is **Figure 1 of the Review I report** (Elmasri and Navathe notation); it is the design this database implements and is not redrawn here. Review I, Table 10, counts six entity types and eight relationship types:
+
+| Construct | Review I |
+|---|---|
+| Strong entity types (5) | USER, ZONE, INCIDENT, RESPONSE_UNIT, RESOURCE |
+| Weak entity type (1) | INCIDENT_UPDATE (owner INCIDENT, partial key `update_no`) |
+| Binary 1:1 | LEADS (USER lead, RESPONSE_UNIT) |
+| Binary 1:N (5) | REPORTS (USER, INCIDENT), LOCATED_IN (ZONE, INCIDENT), BASED_IN (ZONE, RESPONSE_UNIT), LOGS (USER, INCIDENT_UPDATE), HAS_UPDATE (identifying) |
+| Binary M:N | ALLOCATED (INCIDENT, RESOURCE; quantity and time belong to the pair) |
+| Ternary M:N:1 | DISPATCHED_TO (INCIDENT, RESPONSE_UNIT, USER as coordinator) |
+
+Derived attributes (not stored): `active_incidents` and `stock_status`, realised as functions (BR-10). The relational form is in Review I, Tables 11 to 14 and in the next section.
 
 ## 5. Relational schema
 
@@ -189,8 +204,8 @@ The Review II database is now the working core of the application: users, incide
 reports are the Review II queries, and each operation explains itself. Existing features (registration, sign-in, legacy incidents, health) are unchanged and covered by regression tests.
 
 Known limits and open items:
-* The wording of FR-01, FR-02, FR-08, FR-09 and FR-14 must be pasted from Review I (section 3).
-* The ER diagram is referenced, not redrawn (section 4).
+* FR-06 (maintain zones and units) and the catalogue-maintenance part of FR-09 have no screen or endpoint in Review III (section 3); FR-04 lists and filters by status only.
+* The ER diagram is Figure 1 of Review I, referenced rather than redrawn (section 4).
 * The incident-response endpoints and the demonstration need PostgreSQL; on the SQLite fallback they answer HTTP 501.
 * The trace lists BEFORE triggers on a constraint failure by PostgreSQL's firing order rather than by observation (`ARCHITECTURE.md`).
 * PDF export was verified by unit tests of its layout; the CSV and the on-screen reports were checked in a browser, the downloaded PDF file itself was not opened.
