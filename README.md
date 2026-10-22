@@ -6,6 +6,14 @@ SentinelAI is a full-stack decision-support system for dispatching rescue teams 
 
 DMERS uses PostgreSQL when `DATABASE_URL` is configured and falls back to its SQLite operational store for offline/local use. The application database `dmers` stores accounts, incidents, locations, response teams, hospitals, missions, simulations and audit events. The Review II coursework schema is integrated separately as `dmers_course`, preserving both models. Its PostgreSQL 16 scripts implement eight relations, constraints, seeded records, 15 queries, PL/pgSQL functions and procedures, a cursor, and five triggers. The Data Management view can load live application records and the Review II demonstration side by side. See [Review II database integration](docs/review2/README.md).
 
+## AI-DMERS advisory layer
+
+The AI endpoints provide authenticated, officer-reviewed classification,
+severity, duplicate, credibility and baseline forecast advisories. They never
+dispatch or alter operational records. See [AI layer documentation](docs/ai_layer.md).
+Install `backend/requirements-ai-training.txt` only when training the optional
+learned models; the normal application uses its advisory fallback offline.
+
 ## Offline use
 
 The command centre is designed to run without Internet or LAN access. Its map reference layer, facility markers, scenario generator, AI route planner, local accounts, reports, and route estimates all run on the device. Route estimates are straight-line planning estimates, not live road navigation or traffic data.
@@ -35,6 +43,14 @@ AWS deployment files live separately in [`aws/`](aws/README.md) and use ECS Farg
 For a completely disconnected machine, copy this project including `frontend/node_modules` and the Python virtual environment after they have been installed once on a connected machine. Then run `cd frontend; npm run dev` — the interface works by itself at the local URL shown. Optionally start the backend with `cd backend; .\.venv\Scripts\python.exe run.py` for SQLite-backed accounts, simulations, and audit log.
 
 Sample application administrator: `admin@rescue.ai` / `Admin@123`. Review II coursework demo accounts use `Dmers@2026`; those accounts are data in `dmers_course` and are not application sign-in accounts. Set a real `SECRET_KEY` for deployment.
+
+## Docker deployment
+
+Docker Compose deploys one DMERS project with separate `frontend` (Nginx),
+`backend` (Flask), and `database` (PostgreSQL) containers on an internal
+network. Copy `.env.example` to `.env`, replace both placeholder secrets, then
+run `docker compose up --build -d`. Open `http://localhost:8080`; inspect
+services with `docker compose ps` and logs with `docker compose logs -f`.
 
 ## Features
 

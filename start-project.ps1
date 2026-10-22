@@ -88,3 +88,14 @@ try {
 } finally {
     Pop-Location
 }
+<<<<<<< HEAD
+=======
+& "$root\backend\.venv\Scripts\python.exe" -m pip install -r "$root\backend\requirements.txt"
+if ($LASTEXITCODE -ne 0) {
+    Write-Host 'Some optional AI training packages could not be downloaded. Starting DMERS with its built-in advisory fallback.' -ForegroundColor Yellow
+}
+Start-Process powershell -ArgumentList '-NoExit', '-Command', "Set-Location '$root\backend'; & '.\.venv\Scripts\python.exe' -m flask --app run run --host 127.0.0.1 --port 5000"
+Set-Location "$root\frontend"
+if (-not (Test-Path 'node_modules')) { npm install }
+npm run dev
+>>>>>>> origin/feature/ai-decision-support

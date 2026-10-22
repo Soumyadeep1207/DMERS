@@ -1,0 +1,8 @@
+# Default advisory ranking weights. Current behavior remains deterministic:
+# flood capability is preferred for flood reports; available hospital beds rank
+# hospital recommendations. These values are documentation/configuration only.
+team_ranking:
+  capability_match: 0.65
+  availability: 0.35
+hospital_ranking:
+  available_beds: 1.0

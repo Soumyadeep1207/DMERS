@@ -1,8 +1,11 @@
+name: dmers
+
 services:
-  postgres:
+  database:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
+<<<<<<< HEAD
       POSTGRES_DB: dmers
       POSTGRES_USER: dmers
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local .env file}
@@ -16,10 +19,25 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+=======
+      POSTGRES_DB: ${POSTGRES_DB:-dmers}
+      POSTGRES_USER: ${POSTGRES_USER:-dmers}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [dmers]
+>>>>>>> origin/feature/ai-decision-support
 
   backend:
     build:
       context: ./backend
+<<<<<<< HEAD
       target: production
     restart: unless-stopped
     environment:
@@ -41,15 +59,37 @@ services:
       timeout: 4s
       retries: 20
       start_period: 10s
+=======
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dmers}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB:-dmers}
+    depends_on:
+      database:
+        condition: service_healthy
+    expose: ["5000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [dmers]
+>>>>>>> origin/feature/ai-decision-support
 
   frontend:
     build:
       context: ./frontend
+<<<<<<< HEAD
       target: production
+=======
+      dockerfile: Dockerfile
+>>>>>>> origin/feature/ai-decision-support
     restart: unless-stopped
     depends_on:
       backend:
         condition: service_healthy
+<<<<<<< HEAD
     ports: ["127.0.0.1:5175:8080"]
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
@@ -108,6 +148,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+=======
+    ports: ["${DMERS_PORT:-8080}:80"]
+    networks: [dmers]
+>>>>>>> origin/feature/ai-decision-support
 
 volumes:
   postgres_data:
+
+networks:
+  dmers:
+    driver: bridge

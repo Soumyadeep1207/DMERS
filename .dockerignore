@@ -1,0 +1,7 @@
+.git/
+.agents/
+backend/.venv/
+frontend/node_modules/
+frontend/dist/
+backend/*.db
+screenshots/

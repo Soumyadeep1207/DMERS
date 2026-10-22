@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 .venv
 __pycache__
 .pytest_cache
@@ -6,3 +7,11 @@ __pycache__
 *.log
 tests
 .env
+=======
+.venv/
+__pycache__/
+*.pyc
+*.db
+flask-startup*.log
+ai/models/*.joblib
+>>>>>>> origin/feature/ai-decision-support
